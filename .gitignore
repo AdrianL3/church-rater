@@ -1,0 +1,15 @@
+# OS/Editor junk
+.DS_Store
+.vscode/
+
+# Node-related
+**/node_modules/
+**/package-lock.json
+
+# Environment files (Never commit secrets)
+.env
+.env.*.local
+.aws/
+
+# Logs
+*.log

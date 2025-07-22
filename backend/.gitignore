@@ -1,0 +1,17 @@
+# Node.js
+node_modules/
+package-lock.json
+
+# Serverless build artifacts
+.serverless/
+
+# AWS credentials (Never check in secrets)
+.env
+.aws/
+
+# Logs
+*.log
+
+# IDE / OS
+.vscode/
+.DS_Store
