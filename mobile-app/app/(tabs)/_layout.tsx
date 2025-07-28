@@ -34,21 +34,21 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="Your Lists"
+        name="YourLists"
         options={{
           title: 'Your Lists',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="Map"
+        name="map"
         options={{
           title: 'Map',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="Add/Edit"
+        name="addEdit"
         options={{
           title: 'Add/Edit Churches',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
