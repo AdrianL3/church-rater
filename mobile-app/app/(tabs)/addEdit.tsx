@@ -1,7 +1,16 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { View, Text, StyleSheet } from 'react-native';
 
 const Tab = createBottomTabNavigator();
+
+const AddEditScreen = () => {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Add/Edit Screen</Text>
+    </View>
+  );
+};
 
 const AddEditTab = () => {
   return (
@@ -15,12 +24,16 @@ const AddEditTab = () => {
   );
 };
 
-const AddEditScreen = () => {
-  return (
-    <div>
-      <h1>Add/Edit Screen</h1>
-    </div>
-  );
-};
-
 export default AddEditTab;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+});
