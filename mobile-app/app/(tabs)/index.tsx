@@ -11,7 +11,7 @@ const {height: H} = Dimensions.get('window');
 
 const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey || '';
 // Ensure that the apiKey is defined
-console.log('Google Maps API Key:', apiKey);
+//console.log('Google Maps API Key:', apiKey);
 
 const Tab = createBottomTabNavigator();
 
@@ -26,8 +26,8 @@ const MapScreen = () => {
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
-
-  const ref = useRef<GooglePlacesAutocomplete | null>(null);
+  const autocompleteRef = useRef<GooglePlacesAutocomplete>(null);
+  const mapRef = useRef<MapView | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -66,21 +66,22 @@ const MapScreen = () => {
   return (
     <View style={styles.container}>
       <MapView 
-        style={styles.map}
-        provider={PROVIDER_GOOGLE}
-        region={region}
-        showsUserLocation={true}
-        showsMyLocationButton={true}
-        showsCompass={true}
+            ref={mapRef}                                   // attach mapRef here
+            style={styles.map}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={region}
+            showsUserLocation
+            showsMyLocationButton
+            showsCompass
       />
       
       <View style={styles.searchContainer}>
         <GooglePlacesAutocomplete
-          ref={ref}
+          ref={autocompleteRef} // use autocompleteRef for GooglePlacesAutocomplete
 
           placeholder="Type here…"
           query={{ key: apiKey, language: 'en' }}
-          fetchDetails={false}
+          fetchDetails={true}
 
           /*** override minLength so it fires on 1 character ***/
           minLength={1}
@@ -91,20 +92,30 @@ const MapScreen = () => {
           /*** confirm you’re actually typing ***/
           textInputProps={{
             autoFocus: true,
-            onChangeText: text => console.log('INPUT TEXT:', text),
+            //onChangeText: text => console.log('INPUT TEXT:', text),
           }}
 
-          onPress={(data) => {
-            console.log('SELECTED:', data.description)
-            ref.current?.setAddressText(data.description) // Changed autoRef to ref
+          onPress={(data, details = null) => {
+            if (!details?.geometry?.location) return;
+            
+            // 1️⃣ fill the search bar:
+            autocompleteRef.current?.setAddressText(data.description);
+            
+            // 2️⃣ pull coords out of details:
+            const { lat: latitude, lng: longitude } = details.geometry.location;
+            const newRegion = { latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+            
+            // 4️⃣ animate the MapView (not the autocomplete):
+            mapRef.current?.animateToRegion(newRegion, 500);
           }}
+
           onFail={err => console.error('Places error:', err)}
           onNotFound={() => console.warn('No results')}
           predefinedPlaces={[]}
 
           /*** hook into each row so we know it’s rendering ***/
           renderRow={row => {
-            console.log('ROW DATA:', row);
+            //console.log('ROW DATA:', row);
             return (
               <View style={s.row}>
                 <Text>{row.description}</Text>
@@ -116,7 +127,7 @@ const MapScreen = () => {
             container: { flex: 0, width: '100%' },
             textInputContainer: { width: '100%', backgroundColor: '#fff' },
             textInput: { height: 40, borderColor: '#888', borderWidth: 1 },
-            listView: { backgroundColor: 'white', marginTop: 4 },
+            listView: { backgroundColor: 'white', marginTop: 1 },
           }}
         />
       </View>
