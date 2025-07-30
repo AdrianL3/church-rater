@@ -11,6 +11,7 @@ const {height: H} = Dimensions.get('window');
 
 const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey || '';
 // Ensure that the apiKey is defined
+console.log('Google Maps API Key:', apiKey);
 
 const Tab = createBottomTabNavigator();
 
@@ -70,27 +71,64 @@ const MapScreen = () => {
         showsCompass={true}
       />
       <View style={styles.searchContainer}>
-        <GooglePlacesAutocomplete
-          placeholder="Search"
-          onPress={(data, details = null) => {
-            // required callback—even if you don’t need details yet
-            console.log('place selected', data, details);
-          }}
-          query={{
-            key: apiKey,
-            language: 'en',
-          }}
-          predefinedPlaces={[]}          // prevents internal .filter() on undefined
-          textInputProps={{}}            // supplies the text input config object
-          styles={{
-            container: { flex: 0 },
-            textInputContainer: { width: '100%' },
-            textInput: { height: 40, fontSize: 16 },
-            listView: { backgroundColor: 'white' },
-          }}
-        />
+      <GooglePlacesAutocomplete
+        placeholder="Search"
+        fetchDetails={false}
+        onPress={(data, details = null) => console.log(data, details)}
+        query={{ key: apiKey, language: 'en' }}
+        nearbyPlacesAPI="GooglePlacesSearch"
+        debounce={200}
+
+        // ← required to avoid that `.filter` error:
+        predefinedPlaces={[]}
+        predefinedPlacesAlwaysVisible={false}
+
+        // ← ensures textInputProps is never undefined:
+        textInputProps={{}}
+
+
+        styles={{
+          // 👇 _all_ of these slots must be defined:
+          container: {
+            flex: 0,
+            position: 'absolute',
+            top: 0,
+            width: '100%',
+            zIndex: 9999,
+            overflow: 'visible',
+          },
+          textInputContainer: {
+            width: '100%',
+            backgroundColor: 'white',
+          },
+          textInput: {
+            height: 40,
+            borderColor: '#888',
+            borderWidth: 1,
+            borderRadius: 4,
+            paddingHorizontal: 8,
+            fontSize: 16,
+          },
+          listView: {
+            width: '100%',
+            backgroundColor: 'white',
+            shadowColor: '#000',
+            shadowOpacity: 0.1,
+            shadowOffset: { width: 0, height: 2 },
+            shadowRadius: 4,
+          },
+
+          row: {},
+          separator: {},
+          description: {},
+          loader: {},
+          powered: {},
+          poweredContainer: {},
+        }}
+      />
+
       </View>
-      
+
     </View>
   );
 };
@@ -132,7 +170,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? H * 0.12 : H * 0.08,  // push down 8–12% of screen height
+    top: Constants.statusBarHeight + 10, // Adjust for status bar height
     alignSelf: 'center',                                // center horizontally
     width: '90%',
     backgroundColor: 'white',
@@ -142,7 +180,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 0.5,
     shadowRadius: 4,
-    elevation: 4,
+    elevation: 1000,
+    zIndex: 9000, // Ensure it appears above the map
+    overflow: 'visible', // Allow children to overflow
   },
   input: {
     borderColor: "#888",
