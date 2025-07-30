@@ -40,15 +40,16 @@ import 'react-native-get-random-values';
 import React, { useEffect, useRef } from 'react'
 import { View, StyleSheet, Text } from 'react-native'
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete'
+import Constants from 'expo-constants'
 
-const apiKey = "AIzaSyCX7Qzzpp02i2Xn5Xf32FPM8c6J_SQlCEs";
+const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey || '';
 
 export default function TestAutoComplete() {
-  const ref = useRef<GooglePlacesAutocomplete>(null);
+  const ref = useRef<GooglePlacesAutocomplete | null>(null);
 
   // (optional) auto‑focus on mount so we don’t have to tap
   useEffect(() => {
-    setTimeout(() => ref.current?.props.textInputProps?.onFocus?.(), 200);
+    setTimeout(() => ref.current?.getAddressText(''), 200); // Changed to use getAddressText
   }, []);
 
   return (
