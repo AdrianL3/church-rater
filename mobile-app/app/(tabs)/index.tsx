@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps'
 import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Platform } from 'react-native';
@@ -25,6 +25,9 @@ const MapScreen = () => {
     longitudeDelta: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+
+
+  const ref = useRef<GooglePlacesAutocomplete | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -70,63 +73,52 @@ const MapScreen = () => {
         showsMyLocationButton={true}
         showsCompass={true}
       />
+      
       <View style={styles.searchContainer}>
-      <GooglePlacesAutocomplete
-        placeholder="Search"
-        fetchDetails={false}
-        onPress={(data, details = null) => console.log(data, details)}
-        query={{ key: apiKey, language: 'en' }}
-        nearbyPlacesAPI="GooglePlacesSearch"
-        debounce={200}
+        <GooglePlacesAutocomplete
+          ref={ref}
 
-        // ← required to avoid that `.filter` error:
-        predefinedPlaces={[]}
-        predefinedPlacesAlwaysVisible={false}
+          placeholder="Type here…"
+          query={{ key: apiKey, language: 'en' }}
+          fetchDetails={false}
 
-        // ← ensures textInputProps is never undefined:
-        textInputProps={{}}
+          /*** override minLength so it fires on 1 character ***/
+          minLength={1}
 
+          /*** force the list to display on every keystroke ***/
+          listViewDisplayed={true}
 
-        styles={{
-          // 👇 _all_ of these slots must be defined:
-          container: {
-            flex: 0,
-            position: 'absolute',
-            top: 0,
-            width: '100%',
-            zIndex: 9999,
-            overflow: 'visible',
-          },
-          textInputContainer: {
-            width: '100%',
-            backgroundColor: 'white',
-          },
-          textInput: {
-            height: 40,
-            borderColor: '#888',
-            borderWidth: 1,
-            borderRadius: 4,
-            paddingHorizontal: 8,
-            fontSize: 16,
-          },
-          listView: {
-            width: '100%',
-            backgroundColor: 'white',
-            shadowColor: '#000',
-            shadowOpacity: 0.1,
-            shadowOffset: { width: 0, height: 2 },
-            shadowRadius: 4,
-          },
+          /*** confirm you’re actually typing ***/
+          textInputProps={{
+            autoFocus: true,
+            onChangeText: text => console.log('INPUT TEXT:', text),
+          }}
 
-          row: {},
-          separator: {},
-          description: {},
-          loader: {},
-          powered: {},
-          poweredContainer: {},
-        }}
-      />
+          onPress={(data) => {
+            console.log('SELECTED:', data.description)
+            ref.current?.setAddressText(data.description) // Changed autoRef to ref
+          }}
+          onFail={err => console.error('Places error:', err)}
+          onNotFound={() => console.warn('No results')}
+          predefinedPlaces={[]}
 
+          /*** hook into each row so we know it’s rendering ***/
+          renderRow={row => {
+            console.log('ROW DATA:', row);
+            return (
+              <View style={s.row}>
+                <Text>{row.description}</Text>
+              </View>
+            );
+          }}
+
+          styles={{
+            container: { flex: 0, width: '100%' },
+            textInputContainer: { width: '100%', backgroundColor: '#fff' },
+            textInput: { height: 40, borderColor: '#888', borderWidth: 1 },
+            listView: { backgroundColor: 'white', marginTop: 4 },
+          }}
+        />
       </View>
 
     </View>
@@ -188,4 +180,9 @@ const styles = StyleSheet.create({
     borderColor: "#888",
     borderWidth: 1,
   }
+});
+
+const s = StyleSheet.create({
+  container: { paddingTop: 50, paddingHorizontal: 16, flex: 1, backgroundColor: '#eee' },
+  row: { padding: 12, borderBottomWidth: 1, borderColor: '#ddd' },
 });
