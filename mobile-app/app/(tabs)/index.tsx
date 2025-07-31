@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import MapView, { PROVIDER_GOOGLE } from 'react-native-maps'
-import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Platform } from 'react-native';
+import MapView, { PROVIDER_GOOGLE, Marker, MapViewProps, Region } from 'react-native-maps'
+import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Platform,TouchableOpacity } from 'react-native';
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import Constants from 'expo-constants';
 import 'react-native-get-random-values';
+
+import { fetchNearbyChurches, PlaceMarker } from '../features/nearbyChurches';
 
 const {height: H} = Dimensions.get('window');
 
@@ -25,6 +27,7 @@ const MapScreen = () => {
     longitudeDelta: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [markers, setMarkers] = useState<PlaceMarker[]>([]);
 
   const autocompleteRef = useRef<GooglePlacesAutocomplete>(null);
   const mapRef = useRef<MapView | null>(null);
@@ -41,15 +44,25 @@ const MapScreen = () => {
       // Get current location
       let location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
-
-      setRegion({
-        latitude,
-        longitude,
+      const initial: Region = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
         latitudeDelta: 0.1,
         longitudeDelta: 0.1,
-      });
+      };
+
+      setRegion(initial);
 
       setLoading(false);
+
+      try {
+        const places = await fetchNearbyChurches(initial, apiKey);
+        setMarkers(places);
+      } catch (e) {
+        console.warn(e);
+      }
+
+
     })();
   }, []);
 
@@ -61,23 +74,44 @@ const MapScreen = () => {
         </View>
       );
     }
-  // END: add-centered-style
+ 
+    const onRegionChangeComplete = async (r: Region) => {
+      setRegion(r);
+      try {
+        const places = await fetchNearbyChurches(r, apiKey);
+        setMarkers(places);
+      } catch (e) {
+        console.warn(e);
+      }
+    };
 
   return (
     <View style={styles.container}>
       <MapView 
-            ref={mapRef}                                   // attach mapRef here
-            style={styles.map}
+            ref={mapRef}
             provider={PROVIDER_GOOGLE}
             initialRegion={region}
+            style={styles.map}
             showsUserLocation
             showsMyLocationButton
             showsCompass
-      />
+            onRegionChangeComplete={onRegionChangeComplete}
+        >
+        {markers.map(marker => (
+          <Marker
+            key={marker.id}
+            coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
+            title={marker.title}
+          />
+        ))}
+        
+        {/* Optional: Add a marker for the user's current location */}
+      </MapView>
+      
       
       <View style={styles.searchContainer}>
         <GooglePlacesAutocomplete
-          ref={autocompleteRef} // use autocompleteRef for GooglePlacesAutocomplete
+          ref={autocompleteRef}
 
           placeholder="Type here…"
           query={{ key: apiKey, language: 'en' }}
@@ -88,6 +122,7 @@ const MapScreen = () => {
 
           /*** force the list to display on every keystroke ***/
           listViewDisplayed={true}
+          keyboardShouldPersistTaps='always'
 
           /*** confirm you’re actually typing ***/
           textInputProps={{
@@ -98,14 +133,14 @@ const MapScreen = () => {
           onPress={(data, details = null) => {
             if (!details?.geometry?.location) return;
             
-            // 1️⃣ fill the search bar:
+            // fill the search bar:
             autocompleteRef.current?.setAddressText(data.description);
             
-            // 2️⃣ pull coords out of details:
+            // pull coords out of details:
             const { lat: latitude, lng: longitude } = details.geometry.location;
             const newRegion = { latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 };
             
-            // 4️⃣ animate the MapView (not the autocomplete):
+            // animate the MapView (not the autocomplete):
             mapRef.current?.animateToRegion(newRegion, 500);
           }}
 
@@ -117,11 +152,12 @@ const MapScreen = () => {
           renderRow={row => {
             //console.log('ROW DATA:', row);
             return (
-              <View style={s.row}>
+              <View style={styles.row}>
                 <Text>{row.description}</Text>
               </View>
             );
           }}
+        
 
           styles={{
             container: { flex: 0, width: '100%' },
@@ -190,7 +226,15 @@ const styles = StyleSheet.create({
   input: {
     borderColor: "#888",
     borderWidth: 1,
-  }
+  },
+  row: {
+    width: '100%',           // full width
+    paddingVertical: 20,     // tall touch target
+    paddingHorizontal: 15,   // side padding
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    justifyContent: 'center',
+  },
 });
 
 const s = StyleSheet.create({
