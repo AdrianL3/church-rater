@@ -6,6 +6,8 @@ export interface PlaceMarker {
   latitude: number;
   longitude: number;
   title: string;
+  rating?: number;
+  visited?: boolean;
 }
 
 /**
@@ -17,7 +19,7 @@ export interface PlaceMarker {
 export async function fetchNearbyChurches(
   region: Region,
   apiKey: string,
-  radius: number = 5000
+  radius: number = 7500
 ): Promise<PlaceMarker[]> {
   const { latitude, longitude } = region;
   const url =

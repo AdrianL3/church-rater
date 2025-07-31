@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import MapView, { PROVIDER_GOOGLE, Marker, MapViewProps, Region } from 'react-native-maps'
-import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Platform,TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Platform, TouchableOpacity, Button } from 'react-native';
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import Constants from 'expo-constants';
 import 'react-native-get-random-values';
 
 import { fetchNearbyChurches, PlaceMarker } from '../features/nearbyChurches';
-
-const {height: H} = Dimensions.get('window');
+import { useNavigation, useRouter } from 'expo-router';
+import { Callout } from 'react-native-maps';
 
 const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey || '';
 // Ensure that the apiKey is defined
@@ -29,8 +29,11 @@ const MapScreen = () => {
   const [loading, setLoading] = useState(true);
   const [markers, setMarkers] = useState<PlaceMarker[]>([]);
 
+
   const autocompleteRef = useRef<GooglePlacesAutocomplete>(null);
   const mapRef = useRef<MapView | null>(null);
+  const navigation = useNavigation();
+  const router = useRouter();
 
   useEffect(() => {
     (async () => {
@@ -57,7 +60,8 @@ const MapScreen = () => {
 
       try {
         const places = await fetchNearbyChurches(initial, apiKey);
-        setMarkers(places);
+        setMarkers(places.map(p => ({ ...p, rating: p.rating ?? 0, visited: p.visited ?? false })));
+        // setMarkers(places);
       } catch (e) {
         console.warn(e);
       }
@@ -85,6 +89,18 @@ const MapScreen = () => {
       }
     };
 
+    const handleMarkerPress = (marker: PlaceMarker) => {
+      // Handle marker press event
+      console.log('Marker pressed:', marker);
+      const zoomRegion: Region = {
+        latitude: marker.latitude,
+        longitude: marker.longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      };
+      mapRef.current?.animateToRegion(zoomRegion, 500);
+    }
+
   return (
     <View style={styles.container}>
       <MapView 
@@ -98,11 +114,59 @@ const MapScreen = () => {
             onRegionChangeComplete={onRegionChangeComplete}
         >
         {markers.map(marker => (
+          // <Marker
+          //   key={marker.id}
+          //   coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
+          //   title={marker.title}
+          //   onPress= {() => handleMarkerPress(marker)}
+          // >
+          //   <Callout tooltip>
+          //     <View style={styles.callout}>
+          //       <Text style={styles.calloutTitle}>{marker.title}</Text>
+          //       <Text>Rating: {marker.rating?.toFixed(1) || 'N/A'}</Text>
+          //       <Text>
+          //         {marker.visited ? '✅ Visited' : '❌ Not visited yet'}
+          //       </Text>
+          //       <TouchableOpacity
+          //         style={styles.ratingButton}
+          //         onPress={() => {
+          //           console.log('⭐ Add/Edit Rating button pressed for marker:', marker.id);
+          //           router.push({ pathname: '/addEdit', params: { markerId: marker.id } });
+          //         }}
+          //       >
+          //         <Text style={styles.ratingButtonText}>
+          //           {marker.rating ? 'Edit Rating' : 'Add Rating'}
+          //         </Text>
+          //       </TouchableOpacity>
+          //     </View>
+          //   </Callout>
+          // </Marker>
           <Marker
             key={marker.id}
             coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
-            title={marker.title}
-          />
+            onPress={() => handleMarkerPress(marker)}
+          >
+            {/* Remove tooltip so default callout (with built-in press) works */}
+            <Callout
+              onPress={() => {
+                console.log('⭐ Callout pressed for marker:', marker.id);
+                router.push({ pathname: '/addEdit', params: { markerId: marker.id } });
+              }}
+            >
+              <View style={styles.callout}>
+                <Text style={styles.calloutTitle}>{marker.title}</Text>
+                <Text>Rating: {marker.rating?.toFixed(1) || 'N/A'}</Text>
+                <Text>{marker.visited ? '✅ Visited' : '❌ Not visited yet'}</Text>
+
+                {/* You can still render your styled box, but it won’t try to intercept touches */}
+                <View style={styles.ratingButton}>
+                  <Text style={styles.ratingButtonText}>
+                    {marker.rating ? 'Edit Rating' : 'Add Rating'}
+                  </Text>
+                </View>
+              </View>
+            </Callout>
+          </Marker>
         ))}
         
         {/* Optional: Add a marker for the user's current location */}
@@ -209,8 +273,8 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     position: 'absolute',
-    top: Constants.statusBarHeight + 10, // Adjust for status bar height
-    alignSelf: 'center',                                // center horizontally
+    top: Constants.statusBarHeight + 10,
+    alignSelf: 'center',
     width: '90%',
     backgroundColor: 'white',
     padding: 8,
@@ -234,6 +298,31 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     justifyContent: 'center',
+  },
+  callout: {
+    width: 180,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 8,
+    alignItems: 'center',
+  },
+  calloutTitle: {
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  ratingButton: {
+    marginTop: 12,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignSelf: 'stretch',      // makes it full-width inside the callout
+    alignItems: 'center',
+  },
+  ratingButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
