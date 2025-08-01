@@ -6,6 +6,8 @@ import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import Constants from 'expo-constants';
 import 'react-native-get-random-values';
+//ts-ignore-next-line
+import churchIcon from '../../assets/images/church.png'; // Ensure you have a church icon image in your assets
 
 import { fetchNearbyChurches, PlaceMarker } from '../features/nearbyChurches';
 import { useNavigation, useRouter } from 'expo-router';
@@ -29,11 +31,12 @@ const MapScreen = () => {
   const [loading, setLoading] = useState(true);
   const [markers, setMarkers] = useState<PlaceMarker[]>([]);
 
-
-  const autocompleteRef = useRef<GooglePlacesAutocomplete>(null);
+  const autocompleteRef = useRef<typeof GooglePlacesAutocomplete>(null); // FIXED: Changed to typeof
   const mapRef = useRef<MapView | null>(null);
   const navigation = useNavigation();
   const router = useRouter();
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
 
   useEffect(() => {
     (async () => {
@@ -79,15 +82,18 @@ const MapScreen = () => {
       );
     }
  
-    const onRegionChangeComplete = async (r: Region) => {
-      setRegion(r);
-      try {
-        const places = await fetchNearbyChurches(r, apiKey);
-        setMarkers(places);
-      } catch (e) {
-        console.warn(e);
-      }
-    };
+    const onRegionChangeComplete = (r: Region) => {
+      setRegion(r)
+  
+      // clear any pending fetch
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+  
+      // schedule a new fetch in 500ms
+      debounceRef.current = setTimeout(async () => {
+        const places = await fetchNearbyChurches(r, apiKey)
+        setMarkers(places)
+      }, 500) as unknown as NodeJS.Timeout; // FIXED: Cast to NodeJS.Timeout
+    }
 
     const handleMarkerPress = (marker: PlaceMarker) => {
       // Handle marker press event
@@ -114,37 +120,11 @@ const MapScreen = () => {
             onRegionChangeComplete={onRegionChangeComplete}
         >
         {markers.map(marker => (
-          // <Marker
-          //   key={marker.id}
-          //   coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
-          //   title={marker.title}
-          //   onPress= {() => handleMarkerPress(marker)}
-          // >
-          //   <Callout tooltip>
-          //     <View style={styles.callout}>
-          //       <Text style={styles.calloutTitle}>{marker.title}</Text>
-          //       <Text>Rating: {marker.rating?.toFixed(1) || 'N/A'}</Text>
-          //       <Text>
-          //         {marker.visited ? '✅ Visited' : '❌ Not visited yet'}
-          //       </Text>
-          //       <TouchableOpacity
-          //         style={styles.ratingButton}
-          //         onPress={() => {
-          //           console.log('⭐ Add/Edit Rating button pressed for marker:', marker.id);
-          //           router.push({ pathname: '/addEdit', params: { markerId: marker.id } });
-          //         }}
-          //       >
-          //         <Text style={styles.ratingButtonText}>
-          //           {marker.rating ? 'Edit Rating' : 'Add Rating'}
-          //         </Text>
-          //       </TouchableOpacity>
-          //     </View>
-          //   </Callout>
-          // </Marker>
           <Marker
             key={marker.id}
             coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
             onPress={() => handleMarkerPress(marker)}
+            image={churchIcon}
           >
             {/* Remove tooltip so default callout (with built-in press) works */}
             <Callout
@@ -157,7 +137,7 @@ const MapScreen = () => {
                 <Text style={styles.calloutTitle}>{marker.title}</Text>
                 <Text>Rating: {marker.rating?.toFixed(1) || 'N/A'}</Text>
                 <Text>{marker.visited ? '✅ Visited' : '❌ Not visited yet'}</Text>
-
+          
                 {/* You can still render your styled box, but it won’t try to intercept touches */}
                 <View style={styles.ratingButton}>
                   <Text style={styles.ratingButtonText}>
