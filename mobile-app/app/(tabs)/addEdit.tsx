@@ -12,6 +12,7 @@ const AddEditScreen = () => {
   );
 };
 
+//need to make this a tab so that it can be used in the main app
 const AddEditTab = () => {
   return (
     <Tab.Navigator>
