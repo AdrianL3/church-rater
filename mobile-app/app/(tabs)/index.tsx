@@ -92,7 +92,7 @@ const MapScreen = () => {
       debounceRef.current = setTimeout(async () => {
         const places = await fetchNearbyChurches(r, apiKey)
         setMarkers(places)
-      }, 500) as unknown as NodeJS.Timeout; // FIXED: Cast to NodeJS.Timeout
+      }, 500) as unknown as NodeJS.Timeout;
     }
 
     const handleMarkerPress = (marker: PlaceMarker) => {
@@ -135,7 +135,7 @@ const MapScreen = () => {
               onPress={() => {
                 console.log('▶️ Callout pressed for', marker.id);
                 router.push({
-                  pathname: '/hiddenPages/detailsPage',
+                  pathname: '/(hiddenPage)/detailsPage', // Changed here
                   params: {
                     placeId: marker.id,
                     title:   marker.title,

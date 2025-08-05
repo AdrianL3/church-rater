@@ -1,7 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Alert, Image, TouchableOpacity } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
+
+
+export const options = {
+  headerShown: true,
+  headerTransparent: true,
+  headerTitle: '',
+  headerBackTitle: 'Back',
+};
 
 export default function DetailsPage() {
   const { placeId, title, lat, lng, rating, visited } = useLocalSearchParams<{
@@ -14,6 +22,7 @@ export default function DetailsPage() {
   }>();
 
   const [address, setAddress] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey ?? '';
 
@@ -21,22 +30,27 @@ export default function DetailsPage() {
     if (!placeId) return;
     (async () => {
       try {
-        // Use Place Details endpoint to get formatted_address directly
+        // Request place details including photos
         const res = await fetch(
           `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}` +
-            `&fields=name,rating,formatted_address` +
+            `&fields=name,rating,formatted_address,photos` +
             `&key=${apiKey}`
         );
         const json = await res.json();
-        console.log('Place Details JSON:', json);
         if (json.status !== 'OK') {
           throw new Error(json.error_message || json.status);
         }
-        setAddress(json.result.formatted_address);
+        const result = json.result;
+        setAddress(result.formatted_address);
+        // Grab first photo reference if available
+        if (result.photos && result.photos.length > 0) {
+          const ref = result.photos[0].photo_reference;
+          const url = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${ref}&key=${apiKey}`;
+          setPhotoUrl(url);
+        }
       } catch (e: any) {
         console.warn('DetailsPage error:', e);
-        Alert.alert('Error', e.message || 'Failed to load address');
-        setAddress('Address not available');
+        Alert.alert('Error', e.message || 'Failed to load details');
       } finally {
         setLoading(false);
       }
@@ -53,34 +67,38 @@ export default function DetailsPage() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {photoUrl && (
+        <Image source={{ uri: photoUrl }} style={styles.photo} />
+      )}
       <Text style={styles.header}>{title || 'Church Details'}</Text>
-
-      <View style={styles.field}>
-        <Text style={styles.label}>Place ID:</Text>
-        <Text style={styles.value}>{placeId}</Text>
-      </View>
 
       <View style={styles.field}>
         <Text style={styles.label}>Address:</Text>
         <Text style={styles.value}>{address}</Text>
       </View>
 
-      <View style={styles.field}>
-        <Text style={styles.label}>Coordinates:</Text>
-        <Text style={styles.value}>{lat}, {lng}</Text>
-      </View>
-
+    {/* change this so that it connects to my backend */}
       <View style={styles.field}>
         <Text style={styles.label}>Rating:</Text>
         <Text style={styles.value}>{rating || 'N/A'}</Text>
       </View>
 
+    {/* change this so that it connects to my backend */}
       <View style={styles.field}>
         <Text style={styles.label}>Visited:</Text>
         <Text style={styles.value}>{visited === 'true' ? '✅ Yes' : '❌ No'}</Text>
       </View>
 
-      {/* TODO: Add more fields here: opening hours, photos, user notes, etc. */}
+        <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              router.back();
+            }}
+        >
+            <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+      {/* Add more details below HERE */}
+
     </ScrollView>
   );
 }
@@ -95,6 +113,13 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     backgroundColor: '#fff',
+    paddingTop: 100, // Adjust for header height
+  },
+  photo: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 16,
   },
   header: {
     fontSize: 28,
@@ -113,5 +138,17 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 16,
     color: '#333',
+  },
+  backButton: {
+    marginTop: 24,
+    alignSelf: 'center',
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: 'white',
+    fontSize: 16,
   },
 });
