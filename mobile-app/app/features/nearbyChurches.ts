@@ -44,3 +44,6 @@ export async function fetchNearbyChurches(
     title: place.name,
   }));
 }
+
+//default export
+export default fetchNearbyChurches;

@@ -11,7 +11,7 @@ import churchIcon from '../../assets/images/church.png'; // Ensure you have a ch
 
 import { fetchNearbyChurches, PlaceMarker } from '../features/nearbyChurches';
 import { useNavigation, useRouter } from 'expo-router';
-import { Callout } from 'react-native-maps';
+import { Callout, CalloutSubview } from 'react-native-maps';
 
 const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey || '';
 // Ensure that the apiKey is defined
@@ -122,34 +122,42 @@ const MapScreen = () => {
         {markers.map(marker => (
           <Marker
             key={marker.id}
-            coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
-            onPress={() => handleMarkerPress(marker)}
+            coordinate={{
+              latitude: marker.latitude,
+              longitude: marker.longitude,
+            }}
             image={churchIcon}
+            anchor={{ x: 0.5, y: 1 }}
+            calloutAnchor={{ x: 0.5, y: 0 }}
+            onPress={() => handleMarkerPress(marker)}
           >
-            {/* Remove tooltip so default callout (with built-in press) works */}
             <Callout
               onPress={() => {
-                console.log('⭐ Callout pressed for marker:', marker.id);
-                router.push({ pathname: '/addEdit', params: { markerId: marker.id } });
+                console.log('▶️ Callout pressed for', marker.id);
+                router.push({
+                  pathname: '/hiddenPages/detailsPage',
+                  params: {
+                    placeId: marker.id,
+                    title:   marker.title,
+                    lat:     marker.latitude.toString(),
+                    lng:     marker.longitude.toString(),
+                    rating:  (marker.rating ?? 0).toString(),
+                    visited: (marker.visited ?? false).toString(),
+                  },
+                });
               }}
             >
               <View style={styles.callout}>
                 <Text style={styles.calloutTitle}>{marker.title}</Text>
                 <Text>Rating: {marker.rating?.toFixed(1) || 'N/A'}</Text>
                 <Text>{marker.visited ? '✅ Visited' : '❌ Not visited yet'}</Text>
-          
-                {/* You can still render your styled box, but it won’t try to intercept touches */}
-                <View style={styles.ratingButton}>
-                  <Text style={styles.ratingButtonText}>
-                    {marker.rating ? 'Edit Rating' : 'Add Rating'}
-                  </Text>
-                </View>
+                <Text style={{ marginTop: 8, color: '#007AFF', fontWeight: '600' }}>
+                  Tap anywhere here for details
+                </Text>
               </View>
             </Callout>
           </Marker>
         ))}
-        
-        {/* Optional: Add a marker for the user's current location */}
       </MapView>
       
       
