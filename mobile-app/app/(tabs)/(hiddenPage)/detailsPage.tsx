@@ -86,14 +86,24 @@ export default function DetailsPage() {
     {/* change this so that it connects to my backend */}
       <View style={styles.field}>
         <Text style={styles.label}>Visited:</Text>
-        <Text style={styles.value}>{visited === 'true' ? '✅ Yes' : '❌ No'}</Text>
-      </View>
+          <Text style={styles.value}>{visited === 'true' ? '✅ Yes' : '❌ No'}</Text>
+        </View>
 
         <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => {
-              router.back();
+          style={styles.rateButton}
+          onPress={() => {
+              router.push({ pathname: "/(tabs)/(hiddenPage)/addEdit", params: { placeId, title, lat, lng, rating, visited } });
             }}
+              >
+                  <Text style={styles.backButtonText}>Rate</Text>
+              </TouchableOpacity>
+
+
+              <TouchableOpacity
+                  style={styles.backButton}
+                  onPress={() => {
+                    router.back();
+                  }}
         >
             <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
@@ -150,5 +160,13 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: 'white',
     fontSize: 16,
+  },
+  rateButton: {
+    marginTop: 24,
+    alignSelf: 'center',
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
 });

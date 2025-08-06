@@ -22,6 +22,9 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
+        {/* make it so that the hiddenPage files cant be seen in the navbar */}
+        <Stack.Screen name="(tabs)/(hiddenPage)/addEdit" options={{ headerShown: false }} />
+        <Stack.Screen name="YourLists" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
