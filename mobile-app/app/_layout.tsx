@@ -21,9 +21,12 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(hiddenPage)/addEdit" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(hiddenPage)/detailsPage" options={{ headerShown: false }} />
+        {/* This screen is used to handle not found routes */}
         <Stack.Screen name="+not-found" />
         {/* make it so that the hiddenPage files cant be seen in the navbar */}
-        <Stack.Screen name="(tabs)/(hiddenPage)/addEdit" options={{ headerShown: false }} />
         <Stack.Screen name="YourLists" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />

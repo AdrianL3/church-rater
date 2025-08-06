@@ -5,10 +5,7 @@ import Constants from 'expo-constants';
 
 
 export const options = {
-  headerShown: true,
-  headerTransparent: true,
-  headerTitle: '',
-  headerBackTitle: 'Back',
+  headerShown: false,
 };
 
 export default function DetailsPage() {
@@ -92,7 +89,7 @@ export default function DetailsPage() {
         <TouchableOpacity
           style={styles.rateButton}
           onPress={() => {
-              router.push({ pathname: "/(tabs)/(hiddenPage)/addEdit", params: { placeId, title, lat, lng, rating, visited } });
+              router.push({ pathname: "/addEdit", params: { placeId, title, lat, lng, rating, visited } });
             }}
               >
                   <Text style={styles.backButtonText}>Rate</Text>

@@ -135,7 +135,7 @@ const MapScreen = () => {
               onPress={() => {
                 console.log('▶️ Callout pressed for', marker.id);
                 router.push({
-                  pathname: '/(hiddenPage)/detailsPage', // Changed here
+                  pathname: '../(hiddenPage)/detailsPage', // Changed here
                   params: {
                     placeId: marker.id,
                     title:   marker.title,

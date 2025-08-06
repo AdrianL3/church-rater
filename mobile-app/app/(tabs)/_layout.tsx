@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Stack, Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
 
@@ -26,6 +26,8 @@ export default function TabLayout() {
           default: {},
         }),
       }}>
+      <Stack.Screen name="(hiddenPage)/addEdit" options={{ headerShown: false }} />
+      
       <Tabs.Screen
         name="index"
         options={{
@@ -37,13 +39,6 @@ export default function TabLayout() {
         name="YourLists"
         options={{
           title: 'Your Lists',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="(hiddenPage)/addEdit"
-        options={{
-          title: 'hello',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
