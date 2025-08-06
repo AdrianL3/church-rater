@@ -135,7 +135,7 @@ const MapScreen = () => {
               onPress={() => {
                 console.log('▶️ Callout pressed for', marker.id);
                 router.push({
-                  pathname: '../(hiddenPage)/detailsPage', // Changed here
+                  pathname: '/(hiddenPage)/detailsPage',
                   params: {
                     placeId: marker.id,
                     title:   marker.title,
@@ -228,19 +228,7 @@ const MapScreen = () => {
 //i can use this to create a lambda function that will return markers for all the nearby churches
 //handle markers press event onPress
 
-const MapTab = () => {
-  return (
-    <Tab.Navigator>
-      <Tab.Screen 
-        name="Map" 
-        component={MapScreen} 
-        options={{ headerShown: false }} 
-      />
-    </Tab.Navigator>
-  );
-};
-
-export default MapTab;
+export default MapScreen;
 
 const styles = StyleSheet.create({
   container: {

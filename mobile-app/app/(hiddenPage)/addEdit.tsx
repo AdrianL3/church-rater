@@ -9,11 +9,6 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 
-export const options = {
-  headerShown: false,  
-};
-
-
 export default function AddEditScreen() {
   const router = useRouter();
   const { placeId, title, lat, lng, rating, visited } =

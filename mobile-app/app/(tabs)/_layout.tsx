@@ -26,7 +26,6 @@ export default function TabLayout() {
           default: {},
         }),
       }}>
-      <Stack.Screen name="(hiddenPage)/addEdit" options={{ headerShown: false }} />
       
       <Tabs.Screen
         name="index"

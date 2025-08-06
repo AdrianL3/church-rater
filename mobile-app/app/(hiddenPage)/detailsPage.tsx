@@ -3,11 +3,6 @@ import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Alert, Image, To
 import { router, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
 
-
-export const options = {
-  headerShown: false,
-};
-
 export default function DetailsPage() {
   const { placeId, title, lat, lng, rating, visited } = useLocalSearchParams<{
     placeId: string;

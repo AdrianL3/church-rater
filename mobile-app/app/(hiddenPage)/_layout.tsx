@@ -4,17 +4,15 @@ import React from 'react';
 
 export default function HiddenLayout() {
   return (
-    <Stack>
-
-        <Stack.Screen
-          name="addEdit"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="detailsPage"
-          options={{ headerShown: false }}
-        />
+    <Stack 
+      screenOptions={{ 
+        headerShown: false,
+        header: () => null,
+        presentation: 'fullScreenModal'
+      }}
+    >
+        <Stack.Screen name="addEdit" />
+        <Stack.Screen name="detailsPage" />
       </Stack>
-    
   );
 }
