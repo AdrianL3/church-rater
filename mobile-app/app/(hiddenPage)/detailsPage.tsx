@@ -69,37 +69,58 @@ export default function DetailsPage() {
         <Text style={styles.value}>{address}</Text>
       </View>
 
-    {/* change this so that it connects to my backend */}
+      {/* change this so that it connects to my backend */}
+      <View style={styles.field}>
+        <Text style={styles.label}>Visited:</Text>
+          <Text style={styles.value}>{visited === 'true' ? '✅ Yes' : '❌ No'}</Text>
+      </View>
+
+      {/* change this so that it connects to my backend */}
       <View style={styles.field}>
         <Text style={styles.label}>Rating:</Text>
         <Text style={styles.value}>{rating || 'N/A'}</Text>
       </View>
 
-    {/* change this so that it connects to my backend */}
+  
+
       <View style={styles.field}>
-        <Text style={styles.label}>Visited:</Text>
-          <Text style={styles.value}>{visited === 'true' ? '✅ Yes' : '❌ No'}</Text>
-        </View>
+        {/* User Notes on church */}
+        <Text style={styles.label}>Notes:</Text>
+        <Text style={styles.value}>
+          {visited === 'true' ? 'This is where I go to church.' : 'No notes available.'}
+        </Text>
+      </View>
 
-        <TouchableOpacity
-          style={styles.rateButton}
-          onPress={() => {
-              router.push({ pathname: "/addEdit", params: { placeId, title, lat, lng, rating, visited } });
-            }}
-              >
-                  <Text style={styles.backButtonText}>Rate</Text>
-              </TouchableOpacity>
+      {/* Placeholder to display user uploaded images only if they have visited. if not visited display text "Rate to add images" */}
+      <View style={styles.field}>
+        <Text style={styles.label}>User Images:</Text>
+        {visited === 'true' ? (
+          <Text style={styles.value}>No images uploaded yet.</Text>
+        ) : (
+          <Text style={styles.value}>Rate to add images</Text>
+        )}
+      </View>
 
+      <TouchableOpacity
+        style={styles.rateButton}
+        onPress={() => {
+            router.push({ pathname: "/addEdit", params: { placeId, title, lat, lng, rating, visited } });
+          }}
+            >
+            {/* text of button is rate if not visited, or Edit if visited */}
+            <Text style={styles.backButtonText}>
+                {visited === 'true' ? 'Edit' : 'Rate'}
+            </Text>
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                  style={styles.backButton}
-                  onPress={() => {
-                    router.back();
-                  }}
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                router.back();
+              }}
         >
-            <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
-      {/* Add more details below HERE */}
 
     </ScrollView>
   );
@@ -131,9 +152,10 @@ const styles = StyleSheet.create({
   },
   field: {
     marginBottom: 16,
+    padding: 8,
   },
   label: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '600',
     marginBottom: 4,
   },

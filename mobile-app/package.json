@@ -11,10 +11,16 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@aws-amplify/auth": "^6.15.0",
+    "@aws-amplify/core": "^6.13.1",
+    "@aws-amplify/react-native": "^1.1.10",
     "@expo/vector-icons": "^14.1.0",
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-community/netinfo": "^11.4.1",
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
+    "aws-amplify": "^6.15.5",
     "axios": "^1.10.0",
     "expo": "~53.0.20",
     "expo-blur": "~14.1.5",
@@ -39,7 +45,7 @@
     "react-native-google-places-autocomplete": "^2.5.7",
     "react-native-maps": "1.20.1",
     "react-native-reanimated": "~3.17.4",
-    "react-native-safe-area-context": "5.4.0",
+    "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "~4.11.1",
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5"

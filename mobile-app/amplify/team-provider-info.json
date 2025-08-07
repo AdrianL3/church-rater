@@ -1,0 +1,20 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-churchraterauth-dev-84fab-authRole",
+      "UnauthRoleArn": "arn:aws:iam::901760679967:role/amplify-churchraterauth-dev-84fab-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::901760679967:role/amplify-churchraterauth-dev-84fab-authRole",
+      "Region": "us-west-1",
+      "DeploymentBucketName": "amplify-churchraterauth-dev-84fab-deployment",
+      "UnauthRoleName": "amplify-churchraterauth-dev-84fab-unauthRole",
+      "StackName": "amplify-churchraterauth-dev-84fab",
+      "StackId": "arn:aws:cloudformation:us-west-1:901760679967:stack/amplify-churchraterauth-dev-84fab/eb1747f0-731e-11f0-894d-026df8d450af",
+      "AmplifyAppId": "d1kdmn2g2q9js5"
+    },
+    "categories": {
+      "auth": {
+        "churchraterauth23a0ffa0": {}
+      }
+    }
+  }
+}

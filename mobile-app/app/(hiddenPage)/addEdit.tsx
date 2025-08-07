@@ -44,8 +44,13 @@ export default function AddEditScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#fff" },
-  label: { fontSize: 18, marginBottom: 8 },
+  container: { flex: 1, padding: 16, backgroundColor: "#fff", paddingTop: 100 },
+  label: { 
+    fontSize: 18, 
+    marginBottom: 8,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",

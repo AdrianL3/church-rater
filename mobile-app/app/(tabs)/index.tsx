@@ -8,10 +8,10 @@ import Constants from 'expo-constants';
 import 'react-native-get-random-values';
 //ts-ignore-next-line
 import churchIcon from '../../assets/images/church.png'; // Ensure you have a church icon image in your assets
-
 import { fetchNearbyChurches, PlaceMarker } from '../features/nearbyChurches';
 import { useNavigation, useRouter } from 'expo-router';
 import { Callout, CalloutSubview } from 'react-native-maps';
+
 
 const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey || '';
 // Ensure that the apiKey is defined

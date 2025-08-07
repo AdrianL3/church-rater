@@ -38,6 +38,9 @@ export default {
         },
       ],
     ],
+    extra: {
+      googleMapsApiKey: process.env.GOOGLE_API_KEY,
+    },
     experiments: {
       typedRoutes: true,
     },
