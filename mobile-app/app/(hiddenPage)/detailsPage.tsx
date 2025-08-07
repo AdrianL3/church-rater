@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Alert, Image, TouchableOpacity } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Alert, Image, TouchableOpacity, Linking } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
 
@@ -16,6 +16,7 @@ export default function DetailsPage() {
   const [address, setAddress] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [website, setWebsite] = useState<string | null>(null);
   const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey ?? '';
 
   useEffect(() => {
@@ -25,7 +26,7 @@ export default function DetailsPage() {
         // Request place details including photos
         const res = await fetch(
           `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}` +
-            `&fields=name,rating,formatted_address,photos` +
+            `&fields=name,rating,formatted_address,photos,website` +
             `&key=${apiKey}`
         );
         const json = await res.json();
@@ -34,6 +35,7 @@ export default function DetailsPage() {
         }
         const result = json.result;
         setAddress(result.formatted_address);
+        setWebsite(result.website ?? null);
         // Grab first photo reference if available
         if (result.photos && result.photos.length > 0) {
           const ref = result.photos[0].photo_reference;
@@ -68,6 +70,16 @@ export default function DetailsPage() {
         <Text style={styles.label}>Address:</Text>
         <Text style={styles.value}>{address}</Text>
       </View>
+
+      {/* If website is available, display it as a clickable link */}
+      {website ? (
+        <View style={styles.field}>
+          <Text style={styles.label}>Website:</Text>
+          <TouchableOpacity onPress={() => Linking.openURL(website)}>
+            <Text style={[styles.value, { color: 'blue' }]}>{website}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {/* change this so that it connects to my backend */}
       <View style={styles.field}>
@@ -152,7 +164,7 @@ const styles = StyleSheet.create({
   },
   field: {
     marginBottom: 16,
-    padding: 8,
+    padding: 5,
   },
   label: {
     fontSize: 20,

@@ -5,21 +5,20 @@ import { authService } from '../../services/authService';
 
 export default function SignUp() {
   const router = useRouter();
-  const [username, setUsername] = useState('');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [confirmationCode, setConfirmationCode] = useState('');
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const onSignUp = async () => {
-    if (!username || !email || !password) {
+    if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
     try {
-      console.log('Attempting to sign up with username:', username, 'email:', email);
-      const result = await authService.signUp(username, email, password);
+      console.log('Attempting to sign up with email:', email);
+      const result = await authService.signUp(email, email, password);
       console.log('Sign up result:', result);
       
       if (result.success) {
@@ -42,7 +41,7 @@ export default function SignUp() {
 
     try {
       console.log('Attempting to confirm sign up with code:', confirmationCode);
-      const result = await authService.confirmSignUp(username, confirmationCode);
+      const result = await authService.confirmSignUp(email, confirmationCode);
       console.log('Confirmation result:', result);
       
       if (result.success) {
@@ -65,13 +64,6 @@ export default function SignUp() {
         <>
           <TextInput
             style={styles.input}
-            placeholder="Username"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-          />
-          <TextInput
-            style={styles.input}
             placeholder="Email"
             value={email}
             onChangeText={setEmail}
@@ -86,6 +78,7 @@ export default function SignUp() {
             onChangeText={setPassword}
           />
           <Button title="Sign Up" onPress={onSignUp} />
+          <Button title="Already have an account? Sign In" onPress={() => router.push('/auth/signIn')} />
         </>
       ) : (
         <>

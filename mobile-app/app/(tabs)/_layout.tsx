@@ -1,7 +1,7 @@
 import { Stack, Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
-
+import { Image } from 'react-native';
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
@@ -31,14 +31,33 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Map',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="map.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="YourLists"
         options={{
           title: 'Your Lists',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Image
+              source={require('../../assets/images/list.png')}
+              style={{
+                width: size,
+                height: size,
+                tintColor: color,
+                resizeMode: 'contain',
+              }}
+            />
+          ),
+        }}
+      />
+
+      
+      <Tabs.Screen
+        name="Profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
         }}
       />
     </Tabs>
