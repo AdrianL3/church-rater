@@ -50,7 +50,8 @@ class AuthService {
         await AsyncStorage.setItem('accessToken', data.AuthenticationResult.AccessToken);
         await AsyncStorage.setItem('refreshToken', data.AuthenticationResult.RefreshToken);
         await AsyncStorage.setItem('idToken', data.AuthenticationResult.IdToken);
-        
+        await AsyncStorage.setItem('username', username);
+
         return {
           success: true,
           tokens: {
@@ -58,6 +59,7 @@ class AuthService {
             refreshToken: data.AuthenticationResult.RefreshToken,
             idToken: data.AuthenticationResult.IdToken,
           },
+          
         };
       } else if (data.__type === 'UserNotFoundException') {
         return {
