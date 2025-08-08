@@ -1,17 +1,31 @@
-# Node.js
+# Node dependencies
 node_modules/
-package-lock.json
 
-# Serverless build artifacts
+# Serverless build output
 .serverless/
 
-# AWS credentials (Never check in secrets)
-.env
-.aws/
+# Build artifacts
+dist/
+build/
 
 # Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 *.log
 
-# IDE / OS
-.vscode/
+# Environment files
+.env
+.env.*.local
+
+# Test coverage
+coverage/
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# IDE/project files
+.vscode/
+.idea/

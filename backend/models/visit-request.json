@@ -1,0 +1,14 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "VisitUpsert",
+    "type": "object",
+    "properties": {
+      "rating":   { "type": "number", "minimum": 0, "maximum": 5 },
+      "notes":    { "type": "string", "maxLength": 1000 },
+      "visitDate":{ "type": "string", "format": "date" },
+      "imageKeys":{ "type": "array", "items": { "type": "string" } }
+    },
+    "required": ["rating","visitDate"],
+    "additionalProperties": false
+  }
+  

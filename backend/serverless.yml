@@ -1,18 +1,106 @@
-# "org" ensures this Service is used with the correct Serverless Framework Access Key.
 org: adrianpersonal3
-# "app" enables Serverless Framework Dashboard features and sharing them with other Services.
 app: catholic-church-finder
-# "service" is the name of this project. This will also be added to your AWS resource names.
 service: backend
+
+custom:
+  userPoolId:    us-west-1_NNGeSDxTP        # ← your Cognito User Pool ID
+  appClientId:   32bvrqma8qafn20tj6ki325grc # ← your Cognito App Client ID
+  userPoolRegion: us-west-1
 
 provider:
   name: aws
-  runtime: nodejs20.x
+  runtime: nodejs18.x
+  region: us-west-2
+
+  httpApi:
+    cors: true
+    authorizers:
+      cognitoAuthorizer:
+        identitySource: $request.header.Authorization
+        issuerUrl: >-
+          https://cognito-idp.${self:custom.userPoolRegion}.amazonaws.com/${self:custom.userPoolId}
+
+        audience:
+          - ${self:custom.appClientId}
+
+  environment:
+    VISITS_TABLE:       ${self:service}-Visits
+    VISIT_IMAGES_BUCKET: ${self:service}-visit-images
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+          Resource:
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-Visits
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+          Resource:
+            - arn:aws:s3:::${self:service}-visit-images/*
 
 functions:
-  hello:
-    handler: handler.hello
+  listVisits:
+    handler: handler.listVisits
     events:
       - httpApi:
-          path: /
-          method: get
+          path: /visits
+          method: GET
+          authorizer: cognitoAuthorizer
+
+  getVisit:
+    handler: handler.getVisit
+    events:
+      - httpApi:
+          path: /visits/{placeId}
+          method: GET
+          authorizer: cognitoAuthorizer
+
+  upsertVisit:
+    handler: handler.upsertVisit
+    events:
+      - httpApi:
+          path: /visits/{placeId}
+          method: POST
+          authorizer: cognitoAuthorizer
+
+  getUploadUrl:
+    handler: handler.getUploadUrl
+    events:
+      - httpApi:
+          path: /visits/{placeId}/upload-url
+          method: GET
+          authorizer: cognitoAuthorizer
+
+resources:
+  Resources:
+    VisitsDynamoTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-Visits
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: placeId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+          - AttributeName: placeId
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    VisitImagesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:service}-visit-images
+        CorsConfiguration:
+          CorsRules:
+            - AllowedMethods: [ GET, PUT ]
+              AllowedOrigins: [ '*' ]
+              AllowedHeaders: [ '*' ]
