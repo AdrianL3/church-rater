@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Alert, Image, TouchableOpacity, Linking } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
@@ -43,17 +44,28 @@ export default function DetailsPage() {
   }, [placeId]);
 
   // 2) Backend visit (rating/notes/date/images)
-  useEffect(() => {
-    if (!placeId) return;
-    (async () => {
-      try {
-        const v = await getVisit(String(placeId));
-        setVisit(v && Object.keys(v).length ? v : null);
-      } catch (e) {
-        console.warn('getVisit failed', e);
-      }
-    })();
+  const fetchVisit = useCallback(async () => {
+    try {
+      if (!placeId) return;
+      const v = await getVisit(String(placeId));
+      setVisit(v && Object.keys(v).length ? v : null);
+    } catch (e) {
+      console.warn('getVisit failed', e);
+    }
   }, [placeId]);
+
+  // initial load
+  useEffect(() => {
+    fetchVisit();
+  }, [fetchVisit]);
+
+  // refetch whenever screen regains focus (e.g., after Save in Add/Edit)
+  useFocusEffect(
+    useCallback(() => {
+      fetchVisit();
+      return () => {};
+    }, [fetchVisit])
+  );
 
   if (loading) {
     return (
