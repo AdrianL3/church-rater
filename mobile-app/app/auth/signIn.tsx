@@ -32,7 +32,7 @@ export default function SignIn() {
     } catch (err: any) {
       console.error('=== SIGN IN ERROR ===');
       console.error('Error:', err);
-      Alert.alert('Sign In Error', err.message || 'An error occurred during sign in');
+      Alert.alert('Sign In Error', err?.message ?? String(err));
     }
   };
 

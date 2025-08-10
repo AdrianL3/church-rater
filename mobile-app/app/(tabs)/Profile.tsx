@@ -19,7 +19,7 @@ export default function Profile() {
   useEffect(() => {
     (async () => {
       // 1) Check auth
-      const loggedIn = await authService.isAuthenticated();
+      const loggedIn = await authService.isSignedIn();
       if (!loggedIn) {
         router.replace('/auth/signIn');
         return;

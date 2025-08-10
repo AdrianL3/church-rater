@@ -47,5 +47,12 @@ export default {
     extra: {
       googleMapsApiKey: process.env.GOOGLE_API_KEY,
     },
+    extra: {
+      apiUrl: "https://tf95p1362f.execute-api.us-west-2.amazonaws.com",
+      cognitoRegion: "us-west-1",
+      cognitoUserPoolId: "us-west-1_NNGeSDxTP",
+      cognitoAppClientId: "32bvrqma8qafn20tj6ki325grc",
+      googleMapsApiKey: process.env.GOOGLE_API_KEY,
+    },
   },
 };

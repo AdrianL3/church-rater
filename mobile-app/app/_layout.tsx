@@ -5,6 +5,8 @@ import { View, ActivityIndicator, Text } from 'react-native';
 
 // Import polyfills for AWS Amplify
 import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
+import '../src/auth/amplify'; // Ensure Amplify is configured
 
 import { Amplify } from 'aws-amplify';
 import awsconfig from '../src/aws-exports';
@@ -27,13 +29,13 @@ export default function RootLayout() {
     }, 5000); // 5 second timeout
     
     // Check if user is authenticated using custom service
-    authService.isAuthenticated()
-      .then((isAuthenticated) => {
-        console.log('Authentication check result:', isAuthenticated);
+    authService.isSignedIn()
+      .then((isSignedIn) => {
+        console.log('Authentication check result:', isSignedIn);
         clearTimeout(timeoutId);
         setChecking(false);
         
-        if (!isAuthenticated) {
+        if (!isSignedIn) {
           // no user → send them to /auth/signIn
           console.log('User not authenticated, redirecting to sign in');
           setTimeout(() => {

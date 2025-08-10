@@ -6,6 +6,8 @@ import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import Constants from 'expo-constants';
 import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto'; // Ensure URL polyfills are available
+import '../../src/auth/amplify'; // Import Amplify configuration
 //ts-ignore-next-line
 import churchIcon from '../../assets/images/church.png'; // Ensure you have a church icon image in your assets
 import { fetchNearbyChurches, PlaceMarker } from '../features/nearbyChurches';

@@ -1,194 +1,87 @@
-import awsconfig from '../src/aws-exports';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// src/services/authService.ts
+import {
+  signIn,
+  signUp,
+  confirmSignUp,
+  signOut,
+  getCurrentUser,
+  fetchAuthSession,
+} from 'aws-amplify/auth';
 
-interface AuthResult {
-  success: boolean;
-  tokens?: {
-    accessToken: string;
-    refreshToken: string;
-    idToken: string;
-  };
-  error?: string;
+type Result = { success: true; data?: any } | { success: false; error: string };
+
+function mapErr(e: any) {
+  console.log('Auth error object:', JSON.stringify(e, null, 2));
+  return e?.message || e?.name || e?.__type || 'Auth error';
 }
 
-class AuthService {
-  private clientId: string;
-  private region: string;
-  private baseUrl: string;
-
-  constructor() {
-    this.clientId = awsconfig.aws_user_pools_web_client_id;
-    this.region = awsconfig.aws_project_region;
-    this.baseUrl = `https://cognito-idp.${this.region}.amazonaws.com/`;
-  }
-
-  async signIn(username: string, password: string): Promise<AuthResult> {
+export const authService = {
+  async signIn(username: string, password: string) {
     try {
-      console.log('Custom Auth Service: Signing in...');
-      
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-amz-json-1.1',
-          'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth',
-        },
-        body: JSON.stringify({
-          AuthFlow: 'USER_PASSWORD_AUTH',
-          ClientId: this.clientId,
-          AuthParameters: {
-            USERNAME: username,
-            PASSWORD: password,
-          },
-        }),
-      });
-
-      const data = await response.json();
-      console.log('Custom Auth Service: Response:', data);
-
-      if (data.AuthenticationResult) {
-        // Store tokens
-        await AsyncStorage.setItem('accessToken', data.AuthenticationResult.AccessToken);
-        await AsyncStorage.setItem('refreshToken', data.AuthenticationResult.RefreshToken);
-        await AsyncStorage.setItem('idToken', data.AuthenticationResult.IdToken);
-        await AsyncStorage.setItem('username', username);
-
-        return {
-          success: true,
-          tokens: {
-            accessToken: data.AuthenticationResult.AccessToken,
-            refreshToken: data.AuthenticationResult.RefreshToken,
-            idToken: data.AuthenticationResult.IdToken,
-          },
-          
-        };
-      } else if (data.__type === 'UserNotFoundException') {
-        return {
-          success: false,
-          error: 'User not found',
-        };
-      } else if (data.__type === 'NotAuthorizedException') {
-        return {
-          success: false,
-          error: 'Invalid username or password',
-        };
-      } else {
-        return {
-          success: false,
-          error: data.message || 'Authentication failed',
-        };
+      let out;
+      try {
+        // 1) SRP (preferred)
+        out = await signIn({ username, password });
+      } catch (e1) {
+        console.log('SRP failed, trying USER_PASSWORD_AUTH');
+        // 2) Non-SRP (requires "User password" enabled on the app client)
+        // @ts-ignore  (Amplify v6 supports this option even if types lag)
+        out = await signIn({ username, password, options: { authFlowType: 'USER_PASSWORD_AUTH' } });
       }
-    } catch (error: any) {
-      console.error('Custom Auth Service: Error:', error);
-      return {
-        success: false,
-        error: error.message || 'Network error',
-      };
-    }
-  }
 
-  async signUp(username: string, email: string, password: string): Promise<AuthResult> {
+      // If your pool uses next steps (MFA/confirm/reset), handle here if needed:
+      // if (!out.isSignedIn) console.log('nextStep:', out.nextStep);
+
+      const { tokens } = await fetchAuthSession();
+      if (!tokens?.idToken) throw new Error('No ID token after sign-in');
+
+      return { success: true, data: out as any };
+    } catch (e) {
+      return { success: false, error: detail(e) };
+    }
+  },
+  async signUp(username: string, email: string, password: string): Promise<Result> {
     try {
-      console.log('Custom Auth Service: Signing up...');
-      
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-amz-json-1.1',
-          'X-Amz-Target': 'AWSCognitoIdentityProviderService.SignUp',
-        },
-        body: JSON.stringify({
-          ClientId: this.clientId,
-          Username: username,
-          Password: password,
-          UserAttributes: [
-            {
-              Name: 'email',
-              Value: email,
-            },
-          ],
-        }),
+      const out = await signUp({
+        username,
+        password,
+        options: { userAttributes: { email } },
       });
-
-      const data = await response.json();
-      console.log('Custom Auth Service: Sign up response:', data);
-
-      if (data.UserSub) {
-        return {
-          success: true,
-        };
-      } else {
-        return {
-          success: false,
-          error: data.message || 'Sign up failed',
-        };
-      }
-    } catch (error: any) {
-      console.error('Custom Auth Service: Sign up error:', error);
-      return {
-        success: false,
-        error: error.message || 'Network error',
-      };
+      return { success: true, data: out };
+    } catch (e) {
+      return { success: false, error: mapErr(e) };
     }
-  }
-
-  async confirmSignUp(username: string, confirmationCode: string): Promise<AuthResult> {
+  },
+  async confirmSignUp(username: string, code: string): Promise<Result> {
     try {
-      console.log('Custom Auth Service: Confirming sign up...');
-      
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-amz-json-1.1',
-          'X-Amz-Target': 'AWSCognitoIdentityProviderService.ConfirmSignUp',
-        },
-        body: JSON.stringify({
-          ClientId: this.clientId,
-          Username: username,
-          ConfirmationCode: confirmationCode,
-        }),
-      });
-
-      const data = await response.json();
-      console.log('Custom Auth Service: Confirm response:', data);
-
-      if (response.ok) {
-        return {
-          success: true,
-        };
-      } else {
-        return {
-          success: false,
-          error: data.message || 'Confirmation failed',
-        };
-      }
-    } catch (error: any) {
-      console.error('Custom Auth Service: Confirm error:', error);
-      return {
-        success: false,
-        error: error.message || 'Network error',
-      };
+      await confirmSignUp({ username, confirmationCode: code });
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: mapErr(e) };
     }
-  }
-
-  async signOut(): Promise<void> {
+  },
+  async signOut(): Promise<Result> {
     try {
-      await AsyncStorage.removeItem('accessToken');
-      await AsyncStorage.removeItem('refreshToken');
-      await AsyncStorage.removeItem('idToken');
-      console.log('Custom Auth Service: Signed out');
-    } catch (error) {
-      console.error('Custom Auth Service: Sign out error:', error);
+      await signOut();
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: mapErr(e) };
     }
-  }
-
-  async isAuthenticated(): Promise<boolean> {
+  },
+  async isSignedIn(): Promise<boolean> {
     try {
-      const accessToken = await AsyncStorage.getItem('accessToken');
-      return !!accessToken;
-    } catch (error) {
+      await getCurrentUser();
+      return true;
+    } catch {
       return false;
     }
-  }
+  },
+  async getIdToken(): Promise<string | null> {
+    const { tokens } = await fetchAuthSession();
+    return tokens?.idToken?.toString() ?? null;
+  },
+};
+function detail(e: unknown) {
+  throw new Error('Function not implemented.');
 }
 
-export const authService = new AuthService(); 
