@@ -55,3 +55,12 @@ export async function getUploadUrl(placeId: string) {
   if (!res.ok) throw new Error(await res.text());
   return res.json() as Promise<{ uploadUrl: string; key: string }>;
 }
+
+export async function getImageUrls(placeId: string): Promise<{ images: { key: string; url: string }[] }> {
+    const res = await fetch(`${API_BASE}/visits/${encodeURIComponent(placeId)}/images`, {
+      method: 'GET',
+      headers: await authHeaders(),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }

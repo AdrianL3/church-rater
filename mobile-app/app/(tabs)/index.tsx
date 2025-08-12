@@ -196,19 +196,6 @@ const MapScreen = () => {
         })}
       </MapView>
 
-      {/* Legend overlay */}
-      <View style={styles.legend} pointerEvents="auto">
-        <View style={styles.legendRow}>
-          <Image source={churchIcon} style={styles.legendIcon} />
-          <Text style={styles.legendText}>Not visited</Text>
-        </View>
-        <View style={styles.legendRow}>
-          <Image source={churchVisitedIcon} style={styles.legendIcon} />
-          <Text style={styles.legendText}>Visited</Text>
-        </View>
-      </View>
-
-
       <View style={styles.searchContainer}>
         <GooglePlacesAutocomplete
           ref={autocompleteRef as any}

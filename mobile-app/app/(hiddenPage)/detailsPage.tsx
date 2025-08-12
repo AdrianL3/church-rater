@@ -3,7 +3,7 @@ import { useFocusEffect } from 'expo-router';
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Alert, Image, TouchableOpacity, Linking } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
-import { getVisit } from '../../src/api';
+import { getVisit, getImageUrls } from '../../src/api';
 
 export default function DetailsPage() {
   const { placeId, title, lat, lng, rating: ratingParam, visited: visitedParam } =
@@ -14,6 +14,7 @@ export default function DetailsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [website, setWebsite] = useState<string | null>(null);
   const [visit, setVisit] = useState<any>(null);
+  const [images, setImages] = useState<{ key: string; url: string }[]>([]);
 
   const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey ?? '';
 
@@ -46,9 +47,16 @@ export default function DetailsPage() {
   // 2) Backend visit (rating/notes/date/images)
   const fetchVisit = useCallback(async () => {
     try {
-      if (!placeId) return;
       const v = await getVisit(String(placeId));
       setVisit(v && Object.keys(v).length ? v : null);
+  
+      // if there are stored image keys, get presigned URLs
+      if (v && Array.isArray(v.imageKeys) && v.imageKeys.length > 0) {
+        const { images } = await getImageUrls(String(placeId));
+        setImages(images); // [{key, url}]
+      } else {
+        setImages([]);
+      }
     } catch (e) {
       console.warn('getVisit failed', e);
     }
@@ -125,17 +133,17 @@ export default function DetailsPage() {
 
       <View style={styles.field}>
         <Text style={styles.label}>User Images:</Text>
-        {isVisited ? (
-          imageKeys.length ? (
-            // simple placeholder list; swap for thumbnails later
-            <>
-              {imageKeys.map((k) => (
-                <Text key={k} style={styles.value}>• {k.split('/').pop()}</Text>
-              ))}
-            </>
-          ) : (
-            <Text style={styles.value}>No images uploaded yet.</Text>
-          )
+
+        {images.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageStrip}>
+            {images.map(img => (
+              <TouchableOpacity key={img.key} onPress={() => Linking.openURL(img.url)}>
+                <Image source={{ uri: img.url }} style={styles.thumb} />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        ) : isVisited ? (
+          <Text style={styles.value}>No images uploaded yet.</Text>
         ) : (
           <Text style={styles.value}>Rate to add images</Text>
         )}
@@ -145,7 +153,6 @@ export default function DetailsPage() {
         style={styles.rateButton}
         onPress={() =>
           router.push({
-            // if this screen lives under (hiddenPage), use '/(hiddenPage)/addEdit'
             pathname: '/(hiddenPage)/addEdit',
             params: { placeId, title, lat, lng },
           })
@@ -172,4 +179,12 @@ const styles = StyleSheet.create({
   backButton: { marginTop: 24, alignSelf: 'center', backgroundColor: '#007AFF', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   backButtonText: { color: 'white', fontSize: 16 },
   rateButton: { marginTop: 24, alignSelf: 'center', backgroundColor: '#007AFF', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  imageStrip: { marginTop: 8 },
+  thumb: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    marginRight: 8,
+    backgroundColor: '#eee',
+  },
 });
