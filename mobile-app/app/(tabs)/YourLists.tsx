@@ -12,6 +12,8 @@ import {
 import { router } from 'expo-router';
 import { listVisits } from '../../src/api';
 import { getPlaceName, prefetchNames } from '../../src/lib/placeNames';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
 type Visit = {
   userId: string;
@@ -30,6 +32,10 @@ export default function YourLists() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sort, setSort] = useState<SortMode>('recent');
+
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const bottomPad = tabBarHeight + insets.bottom + 24;
 
   // placeId -> name cache for UI
   const [nameCache, setNameCache] = useState<Record<string, string>>({});
@@ -164,18 +170,19 @@ export default function YourLists() {
 
   return (
     <View style={styles.screen}>
-      {/* Sort bar */}
-      <View style={styles.sortBar}>
+      <View style={[styles.sortBar, { paddingTop: insets.top + 8 }]}>
         <SortButton label="Recent"  active={sort === 'recent'}  onPress={() => setSort('recent')} />
         <SortButton label="Rating ↓" active={sort === 'rating'} onPress={() => setSort('rating')} />
       </View>
 
       <FlatList
+        style={{ flex: 1 }}
         data={sorted}
         keyExtractor={(v) => `${v.userId}:${v.placeId}`}
         renderItem={({ item }) => <Item v={item} />}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        // 👇 give the list extra bottom space
+        contentContainerStyle={{ padding: 16, paddingBottom: bottomPad }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           <View style={styles.center}>
@@ -184,6 +191,7 @@ export default function YourLists() {
         }
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewConfigRef.current}
+        keyboardShouldPersistTaps="handled"
       />
     </View>
   );
