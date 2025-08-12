@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import MapView, { PROVIDER_GOOGLE, Marker, Region, Callout } from 'react-native-maps';
-import { View, Text, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Image } from 'react-native';
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import Constants from 'expo-constants';
@@ -183,7 +183,6 @@ const MapScreen = () => {
               >
                 <View style={styles.callout}>
                   <Text style={styles.calloutTitle}>{marker.title}</Text>
-                  <Text>Rating: {marker.rating?.toFixed(1) || 'N/A'}</Text>
                   <Text>{marker.visited ? '✅ Visited' : '❌ Not visited yet'}</Text>
                   <Text style={{ marginTop: 8, color: '#007AFF', fontWeight: '600' }}>
                     Tap anywhere here for details
@@ -191,9 +190,24 @@ const MapScreen = () => {
                 </View>
               </Callout>
             </Marker>
+
+            
           );
         })}
       </MapView>
+
+      {/* Legend overlay */}
+      <View style={styles.legend} pointerEvents="auto">
+        <View style={styles.legendRow}>
+          <Image source={churchIcon} style={styles.legendIcon} />
+          <Text style={styles.legendText}>Not visited</Text>
+        </View>
+        <View style={styles.legendRow}>
+          <Image source={churchVisitedIcon} style={styles.legendIcon} />
+          <Text style={styles.legendText}>Visited</Text>
+        </View>
+      </View>
+
 
       <View style={styles.searchContainer}>
         <GooglePlacesAutocomplete
@@ -229,6 +243,8 @@ const MapScreen = () => {
         />
       </View>
     </View>
+
+    
   );
 };
 
@@ -259,4 +275,36 @@ const styles = StyleSheet.create({
   calloutTitle: { fontWeight: 'bold', marginBottom: 4 },
   ratingButton: { marginTop: 12, backgroundColor: '#007AFF', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'stretch', alignItems: 'center' },
   ratingButtonText: { color: 'white', fontSize: 16, fontWeight: '600' },
+  legend: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 8,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+    zIndex: 10000,
+    borderWidth: 2,
+    borderColor: 'red',
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 2,
+  },
+  legendIcon: {
+    width: 18,
+    height: 18,
+    marginRight: 6,
+    resizeMode: 'contain',
+  },
+  legendText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  
 });
