@@ -96,6 +96,10 @@ export default function DetailsPage() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.backButtonText}>← Back</Text>
+      </TouchableOpacity>
+
       {photoUrl && <Image source={{ uri: photoUrl }} style={styles.photo} />}
 
       <Text style={styles.header}>{title || 'Church Details'}</Text>
@@ -137,9 +141,13 @@ export default function DetailsPage() {
         {images.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageStrip}>
             {images.map(img => (
-              <TouchableOpacity key={img.key} onPress={() => Linking.openURL(img.url)}>
-                <Image source={{ uri: img.url }} style={styles.thumb} />
-              </TouchableOpacity>
+              <Image
+                key={img.key}
+                source={{ uri: img.url }}
+                style={styles.thumb}
+                resizeMode="cover"
+                accessible={false}       // not focusable as a control
+              />
             ))}
           </ScrollView>
         ) : isVisited ? (
@@ -148,7 +156,6 @@ export default function DetailsPage() {
           <Text style={styles.value}>Rate to add images</Text>
         )}
       </View>
-
       <TouchableOpacity
         style={styles.rateButton}
         onPress={() =>
@@ -161,9 +168,7 @@ export default function DetailsPage() {
         <Text style={styles.backButtonText}>{isVisited ? 'Edit' : 'Rate'}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>← Back</Text>
-      </TouchableOpacity>
+      
     </ScrollView>
   );
 }
@@ -176,9 +181,9 @@ const styles = StyleSheet.create({
   field: { marginBottom: 16, padding: 5 },
   label: { fontSize: 20, fontWeight: '600', marginBottom: 4 },
   value: { fontSize: 16, color: '#333' },
-  backButton: { marginTop: 24, alignSelf: 'center', backgroundColor: '#007AFF', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  backButton: { marginTop: 10, marginBottom: 10, alignSelf: 'flex-start', backgroundColor: '#007AFF', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   backButtonText: { color: 'white', fontSize: 16 },
-  rateButton: { marginTop: 24, alignSelf: 'center', backgroundColor: '#007AFF', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  rateButton: { marginTop: 24, marginBottom: 24, alignSelf: 'center', backgroundColor: '#007AFF', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   imageStrip: { marginTop: 8 },
   thumb: {
     width: 120,

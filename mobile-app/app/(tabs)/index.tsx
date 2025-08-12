@@ -8,7 +8,9 @@ import Constants from 'expo-constants';
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 import '../../src/auth/amplify';
+// @ts-ignore
 import churchIcon from '../../assets/images/church.png';
+// @ts-ignore
 import churchVisitedIcon from '../../assets/images/church-visited.png';
 import { fetchNearbyChurches, PlaceMarker } from '../features/nearbyChurches';
 import { useNavigation, useRouter } from 'expo-router';
@@ -208,6 +210,7 @@ const MapScreen = () => {
           textInputProps={{ autoFocus: true }}
           onPress={(data, details = null) => {
             if (!details?.geometry?.location) return;
+            // @ts-ignore
             autocompleteRef.current?.setAddressText(data.description);
             const { lat, lng } = details.geometry.location;
             const newRegion = { latitude: lat, longitude: lng, latitudeDelta: 0.05, longitudeDelta: 0.05 };
