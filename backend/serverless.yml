@@ -21,11 +21,13 @@ provider:
           https://cognito-idp.${self:custom.userPoolRegion}.amazonaws.com/${self:custom.userPoolId}
 
         audience:
-          - ${self:custom.appClientId}
+          - 32bvrqma8qafn20tj6ki325grc
+          - 35eiafke5u59ldmupuo8j0j522
 
   environment:
     VISITS_TABLE:       ${self:service}-Visits
     VISIT_IMAGES_BUCKET: ${self:service}-visit-images
+    DEBUG_IMAGE_URLS: '1'
 
   iam:
     role:
@@ -74,6 +76,14 @@ functions:
     events:
       - httpApi:
           path: /visits/{placeId}/upload-url
+          method: GET
+          authorizer: cognitoAuthorizer
+  
+  getImageUrls:
+    handler: handler.getImageUrls
+    events:
+      - httpApi:
+          path: /visits/{placeId}/images
           method: GET
           authorizer: cognitoAuthorizer
 
