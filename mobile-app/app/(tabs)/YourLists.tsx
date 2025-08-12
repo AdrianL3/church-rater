@@ -1,4 +1,3 @@
-// app/YourLists.tsx
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -21,8 +20,7 @@ type Visit = {
   notes?: string | null;
   visitDate?: string | null;   // "YYYY-MM-DD"
   imageKeys?: string[];
-  timestamp?: string;          // ISO
-  // title?: string;            // if you later store it in DynamoDB
+  timestamp?: string;
 };
 
 type SortMode = 'recent' | 'visited' | 'rating';
@@ -95,9 +93,6 @@ export default function YourLists() {
   const sorted = useMemo(() => {
     const arr = [...visits];
     switch (sort) {
-      case 'visited':
-        // visited items first
-        return arr.sort((a, b) => (isVisited(b) ? 1 : 0) - (isVisited(a) ? 1 : 0));
       case 'rating':
         // high → low (missing ratings sink to bottom)
         return arr.sort(
@@ -172,7 +167,6 @@ export default function YourLists() {
       {/* Sort bar */}
       <View style={styles.sortBar}>
         <SortButton label="Recent"  active={sort === 'recent'}  onPress={() => setSort('recent')} />
-        <SortButton label="Visited" active={sort === 'visited'} onPress={() => setSort('visited')} />
         <SortButton label="Rating ↓" active={sort === 'rating'} onPress={() => setSort('rating')} />
       </View>
 

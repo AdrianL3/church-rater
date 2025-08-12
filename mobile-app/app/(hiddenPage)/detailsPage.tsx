@@ -120,7 +120,12 @@ export default function DetailsPage() {
 
       <View style={styles.field}>
         <Text style={styles.label}>Visited:</Text>
-        <Text style={styles.value}>{isVisited ? '✅ Yes' : '❌ No'}</Text>
+        {/* visited on if visited is true */}
+        {isVisited && backendVisitDate ? (
+          <Text style={styles.value}>✅ Visited on: {new Date(backendVisitDate).toLocaleDateString()}</Text>
+        ) : null}
+        {/* else  ❌*/}
+        {!isVisited ? <Text style={styles.value}>❌ Not visited yet</Text> : null}
       </View>
 
       <View style={styles.field}>
