@@ -7,7 +7,15 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as DocumentPicker from 'expo-document-picker';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { getVisit, upsertVisit, getUploadUrl } from '../../src/api';
+
+// Local helper to format date in local time (avoids off-by-one from timezone)
+const toYMD = (d: Date) => {
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+};
 
 export default function AddEdit() {
   const router = useRouter();
@@ -17,10 +25,13 @@ export default function AddEdit() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const [rating, setRating] = useState<string>('');                 // "4"
-  const [visitDate, setVisitDate] = useState<string>(new Date().toISOString().slice(0, 10)); // YYYY-MM-DD
+  const [rating, setRating] = useState<string>('');                 
+  const [visitDate, setVisitDate] = useState<string>(toYMD(new Date())); // YYYY-MM-DD
   const [notes, setNotes] = useState<string>('');
   const [imageKeys, setImageKeys] = useState<string[]>([]);
+
+  // date picker modal state
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
 
   // Prefill from backend if a visit already exists
   useEffect(() => {
@@ -45,43 +56,68 @@ export default function AddEdit() {
   const addPhoto = async () => {
     try {
       setUploading(true);
-
-      // 1) ask permission + pick one image
+  
+      // Request permission + open iOS Photo Picker with multi-select
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) throw new Error('Media library permission denied');
-
+  
       const picked = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,   // 👈 iOS multi-select
         quality: 1,
       });
+  
       if (picked.canceled || !picked.assets?.length) return;
-
-      // 2) normalize to JPEG and a reasonable size
+  
+      // Resize → upload each selected image
+      for (const a of picked.assets) {
+        const manipulated = await ImageManipulator.manipulateAsync(
+          a.uri,
+          [{ resize: { width: 1600 } }],
+          { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG }
+        );
+  
+        const { uploadUrl, key } = await getUploadUrl(String(placeId));
+        const blob = await (await fetch(manipulated.uri)).blob();
+  
+        const res = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'image/jpeg' },
+          body: blob,
+        });
+        if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+  
+        setImageKeys(prev => [...prev, key]);
+      }
+  
+      Alert.alert('Photos added', `Uploaded ${picked.assets.length} photo(s).`);
+    } catch (e: any) {
+      Alert.alert('Upload error', e?.message || 'Failed to upload images');
+    } finally {
+      setUploading(false);
+    }
+  };
+  
+  // helper: resize → upload each → append keys
+  const uploadAssets = async (uris: string[]) => {
+    for (const uri of uris) {
       const manipulated = await ImageManipulator.manipulateAsync(
-        picked.assets[0].uri,
+        uri,
         [{ resize: { width: 1600 } }],
         { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG }
       );
-
-      // 3) get presigned PUT url from backend
+  
       const { uploadUrl, key } = await getUploadUrl(String(placeId));
-
-      // 4) upload binary to S3
       const blob = await (await fetch(manipulated.uri)).blob();
+  
       const res = await fetch(uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'image/jpeg' },
         body: blob,
       });
       if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-
-      // 5) keep the key locally; it’ll be saved on "Save"
+  
       setImageKeys(prev => [...prev, key]);
-      Alert.alert('Photo added', 'Image uploaded successfully.');
-    } catch (e: any) {
-      Alert.alert('Upload error', e?.message || 'Failed to upload image');
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -134,12 +170,31 @@ export default function AddEdit() {
           style={styles.input}
         />
 
-        <Text style={styles.label}>Visit Date (YYYY-MM-DD)</Text>
-        <TextInput
-          value={visitDate}
-          onChangeText={setVisitDate}
-          placeholder="2025-08-10"
-          style={styles.input}
+        <Text style={styles.label}>Visit Date</Text>
+
+        {/* Tappable date field to open the calendar */}
+        <TouchableOpacity
+          style={styles.dateField}
+          onPress={() => setDatePickerVisible(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.dateValue}>{visitDate}</Text>
+          <Text style={styles.dateChange}>Change</Text>
+        </TouchableOpacity>
+
+        {/* Calendar modal */}
+        <DateTimePickerModal
+          isVisible={datePickerVisible}
+          mode="date"
+          date={new Date(visitDate)}
+          maximumDate={new Date()}
+          onConfirm={(d) => {
+            setVisitDate(toYMD(d));
+            setDatePickerVisible(false);
+          }}
+          onCancel={() => setDatePickerVisible(false)}
+          // iOS only style; Android ignores it gracefully:
+          display="inline"
         />
 
         <Text style={styles.label}>Notes</Text>
@@ -152,10 +207,14 @@ export default function AddEdit() {
         />
 
         <View style={styles.row}>
-          <TouchableOpacity style={[styles.button, styles.secondary]} onPress={addPhoto} disabled={uploading}>
-            <Text style={styles.buttonText}>{uploading ? 'Uploading…' : 'Add Photo'}</Text>
-          </TouchableOpacity>
-          <Text style={{ marginLeft: 12 }}>({imageKeys.length} uploaded)</Text>
+        <TouchableOpacity
+          style={[styles.button, styles.secondary]}
+          onPress={addPhoto}
+          disabled={uploading}
+        >
+          <Text style={styles.buttonText}>{uploading ? 'Uploading…' : 'Add Photos'}</Text>
+        </TouchableOpacity>
+        <Text style={{ marginLeft: 12 }}>({imageKeys.length} uploaded)</Text>
         </View>
 
         <TouchableOpacity style={[styles.button, styles.primary]} onPress={save} disabled={saving || uploading}>
@@ -178,10 +237,18 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1, borderColor: '#ddd', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#fafafa',
   },
-  row: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  button: {
-    alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, marginTop: 12,
+
+  // date field styles
+  dateField: {
+    borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 12, backgroundColor: '#fafafa',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'
   },
+  dateValue: { fontSize: 16, color: '#333' },
+  dateChange: { fontSize: 14, color: '#007AFF', fontWeight: '600' },
+
+  row: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  button: { alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, marginTop: 12 },
   primary: { backgroundColor: '#007AFF' },
   secondary: { backgroundColor: '#eee' },
   ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#007AFF' },
