@@ -13,9 +13,10 @@ import churchIcon from '../../assets/images/church.png';
 // @ts-ignore
 import churchVisitedIcon from '../../assets/images/church-visited.png';
 import { fetchNearbyChurches, PlaceMarker } from '../features/nearbyChurches';
-import { useNavigation, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { listVisits } from '../../src/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey || '';
 const Tab = createBottomTabNavigator();
@@ -23,6 +24,24 @@ const Tab = createBottomTabNavigator();
 // shape of the visit info we care about
 type VisitLite = { rating?: number | null; visitDate?: string | null; notes?: string | null };
 type VisitMap = Record<string, VisitLite>; // placeId -> visit
+
+const REGION_KEY = 'lastMapRegion:v1';
+let lastRegionMem: Region | null = null;
+
+async function loadLastRegion(): Promise<Region | null> {
+  if (lastRegionMem) return lastRegionMem;
+  try {
+    const raw = await AsyncStorage.getItem(REGION_KEY);
+    if (raw) lastRegionMem = JSON.parse(raw);
+  } catch {}
+  return lastRegionMem;
+}
+
+async function saveLastRegion(r: Region) {
+  lastRegionMem = r;
+  try { await AsyncStorage.setItem(REGION_KEY, JSON.stringify(r)); } catch {}
+}
+
 
 const MapScreen = () => {
   const [region, setRegion] = useState<Region | null>(null);
@@ -78,13 +97,23 @@ const MapScreen = () => {
   // initial location + initial places
   useEffect(() => {
     (async () => {
+      // try saved region first
+      const saved = await loadLastRegion();
+      if (saved) {
+        setRegion(saved);
+        setLoading(false);
+        // snap immediately so it feels instant
+        mapRef.current?.animateToRegion(saved, 0);
+      }
+  
+      // then try to get current location as a fallback for first-time users
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         console.warn('Permission to access location was denied');
-        setLoading(false);
+        if (!saved) setLoading(false);
         return;
       }
-
+  
       const current = await Location.getCurrentPositionAsync({});
       const initial: Region = {
         latitude: current.coords.latitude,
@@ -92,21 +121,37 @@ const MapScreen = () => {
         latitudeDelta: 0.1,
         longitudeDelta: 0.1,
       };
-
-      setRegion(initial);
-      setLoading(false);
-
+  
+      // if no saved region, use current location
+      if (!saved) {
+        setRegion(initial);
+        setLoading(false);
+        mapRef.current?.animateToRegion(initial, 0);
+      }
+  
       try {
-        const nearby = await fetchNearbyChurches(initial, apiKey);
+        const nearby = await fetchNearbyChurches(saved ?? initial, apiKey);
         setPlaces(nearby);
       } catch (e) {
         console.warn('fetchNearbyChurches failed:', e);
       }
-
+  
       // also load visits at startup
       loadVisits();
     })();
   }, [loadVisits]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      (async () => {
+        const saved = await loadLastRegion();
+        if (saved && mapRef.current) {
+          mapRef.current.animateToRegion(saved, 0);
+        }
+      })();
+      return () => {};
+    }, [])
+  );
 
   // whenever places or visitsMap change, recompute markers
   useEffect(() => {
@@ -123,11 +168,12 @@ const MapScreen = () => {
 
   const onRegionChangeComplete = (r: Region) => {
     setRegion(r);
+    void saveLastRegion(r); // save the region to AsyncStorage
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       try {
         const nearby = await fetchNearbyChurches(r, apiKey);
-        setPlaces(nearby); // visits will be merged by the effect
+        setPlaces(nearby);
       } catch (e) {
         console.warn('fetchNearbyChurches failed:', e);
       }
