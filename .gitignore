@@ -6,7 +6,7 @@
 **/node_modules/
 **/package-lock.json
 
-# Environment files (Never commit secrets)
+# Environment files
 .env
 .env.*.local
 .aws/

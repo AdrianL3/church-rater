@@ -46,6 +46,16 @@ provider:
           Resource:
             - arn:aws:s3:::${self:service}-visit-images/*
 
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: [ dynamodb:Query, dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem ]
+          Resource:
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-Friends
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-Profiles
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-Visits
+
 functions:
   listVisits:
     handler: handler.listVisits
@@ -87,6 +97,54 @@ functions:
           method: GET
           authorizer: cognitoAuthorizer
 
+  getMe:
+    handler: handler.getMe
+    events:
+      - httpApi:
+          path: /me
+          method: GET
+          authorizer: cognitoAuthorizer
+
+  updateProfile:
+    handler: handler.updateProfile
+    events:
+      - httpApi:
+          path: /profile
+          method: POST
+          authorizer: cognitoAuthorizer
+
+  addFriend:
+    handler: handler.addFriend
+    events:
+      - httpApi:
+          path: /friends/{friendId}
+          method: POST
+          authorizer: cognitoAuthorizer
+
+  listFriends:
+    handler: handler.listFriends
+    events:
+      - httpApi:
+          path: /friends
+          method: GET
+          authorizer: cognitoAuthorizer
+
+  friendsSummary:
+    handler: handler.friendsSummary
+    events:
+      - httpApi:
+          path: /friends/summary
+          method: GET
+          authorizer: cognitoAuthorizer
+
+  getFriendVisits:
+    handler: handler.getFriendVisits
+    events:
+      - httpApi:
+          path: /friends/{friendId}/visits
+          method: GET
+          authorizer: cognitoAuthorizer
+
 resources:
   Resources:
     VisitsDynamoTable:
@@ -114,3 +172,32 @@ resources:
             - AllowedMethods: [ GET, PUT ]
               AllowedOrigins: [ '*' ]
               AllowedHeaders: [ '*' ]
+    
+    FriendsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-Friends
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: friendId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+          - AttributeName: friendId
+            KeyType: RANGE
+
+    ProfilesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-Profiles
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+
