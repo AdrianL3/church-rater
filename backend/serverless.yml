@@ -3,8 +3,8 @@ app: catholic-church-finder
 service: backend
 
 custom:
-  userPoolId:    us-west-1_NNGeSDxTP        # ← your Cognito User Pool ID
-  appClientId:   32bvrqma8qafn20tj6ki325grc # ← your Cognito App Client ID
+  userPoolId:    us-west-1_NNGeSDxTP        # Cognito User Pool ID
+  appClientId:   32bvrqma8qafn20tj6ki325grc # Cognito App Client ID
   userPoolRegion: us-west-1
 
 provider:
@@ -17,28 +17,35 @@ provider:
     authorizers:
       cognitoAuthorizer:
         identitySource: $request.header.Authorization
-        issuerUrl: >-
-          https://cognito-idp.${self:custom.userPoolRegion}.amazonaws.com/${self:custom.userPoolId}
-
+        issuerUrl: https://cognito-idp.${self:custom.userPoolRegion}.amazonaws.com/${self:custom.userPoolId}
         audience:
           - 32bvrqma8qafn20tj6ki325grc
           - 35eiafke5u59ldmupuo8j0j522
 
   environment:
-    VISITS_TABLE:       ${self:service}-Visits
-    VISIT_IMAGES_BUCKET: ${self:service}-visit-images
-    DEBUG_IMAGE_URLS: '1'
+    VISITS_TABLE:         ${self:service}-Visits
+    VISIT_IMAGES_BUCKET:  ${self:service}-visit-images
+    DEBUG_IMAGE_URLS:     '1'
+    FRIENDS_TABLE:        ${self:service}-Friends
+    PROFILES_TABLE:       ${self:service}-Profiles
 
   iam:
     role:
       statements:
+        # DynamoDB (Visits, Friends, Profiles)
         - Effect: Allow
           Action:
             - dynamodb:Query
             - dynamodb:GetItem
             - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:BatchGetItem
           Resource:
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-Visits
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-Friends
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-Profiles
+
+        # S3 (signed upload & reads)
         - Effect: Allow
           Action:
             - s3:PutObject
@@ -46,15 +53,6 @@ provider:
           Resource:
             - arn:aws:s3:::${self:service}-visit-images/*
 
-  iam:
-    role:
-      statements:
-        - Effect: Allow
-          Action: [ dynamodb:Query, dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem ]
-          Resource:
-            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-Friends
-            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-Profiles
-            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-Visits
 
 functions:
   listVisits:

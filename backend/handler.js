@@ -5,6 +5,7 @@ const {
   QueryCommand,
   GetCommand,
   PutCommand,
+  BatchGetCommand,
 } = require("@aws-sdk/lib-dynamodb");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
@@ -16,6 +17,8 @@ const s3 = new S3Client({ region: REGION });
 
 const TABLE = process.env.VISITS_TABLE;
 const BUCKET = process.env.VISIT_IMAGES_BUCKET;
+const FRIENDS_TABLE  = process.env.FRIENDS_TABLE  || "backend-Friends";
+const PROFILES_TABLE = process.env.PROFILES_TABLE || "backend-Profiles";
 
 // helper: extract user sub from HTTP API JWT authorizer
 function getUserSub(event) {
@@ -190,8 +193,234 @@ module.exports.getImageUrls = async (event) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(DEBUG ? { images, debug: { keys } } : { images }),
     };
+    } catch (err) {
+      console.error('getImageUrls error', err);
+      return { statusCode: 500, body: JSON.stringify({ message: 'Failed to generate image URLs', error: err?.message }) };
+    }
+  };
+
+
+// Utility: safe JSON parse
+function parseJSON(body) {
+  try { return JSON.parse(body || "{}"); } catch { return {}; }
+}
+
+// GET /me
+exports.getMe = async (event) => {
+  try {
+    const userId = getUserSub(event);
+    if (!userId) return { statusCode: 401, body: JSON.stringify({ message: "Unauthorized" }) };
+
+    const email =
+      event?.requestContext?.authorizer?.jwt?.claims?.email ||
+      event?.requestContext?.authorizer?.claims?.email ||
+      null;
+
+    const prof = await ddb.send(
+      new GetCommand({ TableName: PROFILES_TABLE, Key: { userId } })
+    );
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        userId,
+        email,
+        displayName: prof.Item?.displayName ?? null,
+        friendCode: userId, // friend code == Cognito sub
+      }),
+    };
   } catch (err) {
-    console.error('getImageUrls error', err);
-    return { statusCode: 500, body: JSON.stringify({ message: 'Failed to generate image URLs', error: err?.message }) };
+    console.error("getMe error:", err);
+    return { statusCode: 500, body: JSON.stringify({ message: "Server error", error: err.message }) };
   }
 };
+
+// POST /profile   { displayName }
+exports.updateProfile = async (event) => {
+  try {
+    const userId = getUserSub(event);
+    if (!userId) return { statusCode: 401, body: JSON.stringify({ message: "Unauthorized" }) };
+
+    const body = parseJSON(event.body);
+    const displayName = (body.displayName || "").toString().slice(0, 60);
+
+    await ddb.send(
+      new PutCommand({
+        TableName: PROFILES_TABLE,
+        Item: { userId, displayName, updatedAt: new Date().toISOString() },
+      })
+    );
+
+    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+  } catch (err) {
+    console.error("updateProfile error:", err);
+    return { statusCode: 500, body: JSON.stringify({ message: "Server error", error: err.message }) };
+  }
+};
+
+// POST /friends/{friendId}
+exports.addFriend = async (event) => {
+  try {
+    const userId = getUserSub(event);
+    if (!userId) return { statusCode: 401, body: JSON.stringify({ message: "Unauthorized" }) };
+
+    const friendId = event?.pathParameters?.friendId;
+    if (!friendId || friendId === userId) {
+      return { statusCode: 400, body: JSON.stringify({ message: "Invalid friendId" }) };
+    }
+
+    // Idempotent add (ignore ConditionalCheckFailedException)
+    try {
+      await ddb.send(
+        new PutCommand({
+          TableName: FRIENDS_TABLE,
+          Item: { userId, friendId, createdAt: new Date().toISOString() },
+          ConditionExpression: "attribute_not_exists(userId) AND attribute_not_exists(friendId)",
+        })
+      );
+    } catch (e) {
+      // if already exists, fine
+      if (e.name !== "ConditionalCheckFailedException") throw e;
+    }
+
+    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+  } catch (err) {
+    console.error("addFriend error:", err);
+    return { statusCode: 500, body: JSON.stringify({ message: "Server error", error: err.message }) };
+  }
+};
+
+// GET /friends   → ["friendSub1","friendSub2",...]
+exports.listFriends = async (event) => {
+  try {
+    const userId = getUserSub(event);
+    if (!userId) return { statusCode: 401, body: JSON.stringify({ message: "Unauthorized" }) };
+
+    const out = await ddb.send(
+      new QueryCommand({
+        TableName: FRIENDS_TABLE,
+        KeyConditionExpression: "userId = :u",
+        ExpressionAttributeValues: { ":u": userId },
+      })
+    );
+
+    const ids = (out.Items || []).map((i) => i.friendId);
+    return { statusCode: 200, body: JSON.stringify(ids) };
+  } catch (err) {
+    console.error("listFriends error:", err);
+    return { statusCode: 500, body: JSON.stringify({ message: "Server error", error: err.message }) };
+  }
+};
+
+// GET /friends/summary
+// → [{ friendId, displayName, visitedCount, lastVisit: { placeId, visitDate } | null }]
+exports.friendsSummary = async (event) => {
+  try {
+    const userId = getUserSub(event);
+    if (!userId) return { statusCode: 401, body: JSON.stringify({ message: "Unauthorized" }) };
+
+    // 1) list friendIds
+    const { Items } = await ddb.send(
+      new QueryCommand({
+        TableName: FRIENDS_TABLE,
+        KeyConditionExpression: "userId = :u",
+        ExpressionAttributeValues: { ":u": userId },
+      })
+    );
+    const friendIds = (Items || []).map((i) => i.friendId);
+    if (!friendIds.length) return { statusCode: 200, body: JSON.stringify([]) };
+
+    // 2) batch get profiles
+    const batch = await ddb.send(
+      new BatchGetCommand({
+        RequestItems: {
+          [PROFILES_TABLE]: {
+            Keys: friendIds.map((id) => ({ userId: id })),
+            ProjectionExpression: "userId, displayName",
+          },
+        },
+      })
+    );
+    const profs = {};
+    (batch.Responses?.[PROFILES_TABLE] || []).forEach((p) => (profs[p.userId] = p));
+
+    // 3) compute counts + last visit (simple full query per friend)
+    const summaries = [];
+    for (const fid of friendIds) {
+      const all = await ddb.send(
+        new QueryCommand({
+          TableName: TABLE, // your VISITS_TABLE
+          KeyConditionExpression: "userId = :u",
+          ExpressionAttributeValues: { ":u": fid },
+          ExpressionAttributeNames: { "#ts": "timestamp" },
+          ProjectionExpression: "placeId, visitDate, rating, #ts",
+        })
+      );
+      const items = all.Items || [];
+
+      // Count "visited": either has visitDate or numeric rating
+      const visitedCount = items.filter(
+        (v) =>
+          !!v.visitDate ||
+          (typeof v.rating === "number" && !Number.isNaN(v.rating))
+      ).length;
+
+      // pick last by timestamp (fallback to visitDate)
+      let last = null;
+      for (const it of items) {
+        const t =
+          (it.timestamp && Date.parse(it.timestamp)) ||
+          (it.visitDate && Date.parse(it.visitDate)) ||
+          0;
+        if (!last || t > last._t) {
+          last = { _t: t, placeId: it.placeId, visitDate: it.visitDate || null };
+        }
+      }
+      summaries.push({
+        friendId: fid,
+        displayName: profs[fid]?.displayName ?? null,
+        visitedCount,
+        lastVisit: last ? { placeId: last.placeId, visitDate: last.visitDate } : null,
+      });
+    }
+
+    return { statusCode: 200, body: JSON.stringify(summaries) };
+  } catch (err) {
+    console.error("friendsSummary error:", err);
+    return { statusCode: 500, body: JSON.stringify({ message: "Server error", error: err.message }) };
+  }
+};
+
+// GET /friends/{friendId}/visits  → limited fields only
+exports.getFriendVisits = async (event) => {
+  try {
+    const userId = getUserSub(event);
+    if (!userId) return { statusCode: 401, body: JSON.stringify({ message: "Unauthorized" }) };
+
+    const friendId = event?.pathParameters?.friendId;
+    if (!friendId) return { statusCode: 400, body: JSON.stringify({ message: "Missing friendId" }) };
+
+    // guard: ensure user follows friend
+    const rel = await ddb.send(
+      new GetCommand({ TableName: FRIENDS_TABLE, Key: { userId, friendId } })
+    );
+    if (!rel.Item) return { statusCode: 403, body: JSON.stringify({ message: "Not friends" }) };
+
+    const out = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: "userId = :u",
+        ExpressionAttributeValues: { ":u": friendId },
+        ExpressionAttributeNames: { "#ts": "timestamp" },
+        ProjectionExpression: "placeId, visitDate, rating, #ts",
+      })
+    );
+
+    return { statusCode: 200, body: JSON.stringify(out.Items || []) };
+  } catch (err) {
+    console.error("getFriendVisits error:", err);
+    return { statusCode: 500, body: JSON.stringify({ message: "Server error", error: err.message }) };
+  }
+};
+
+
