@@ -3,9 +3,9 @@ app: catholic-church-finder
 service: backend
 
 custom:
-  userPoolId:    us-west-1_NNGeSDxTP        # Cognito User Pool ID
-  appClientId:   32bvrqma8qafn20tj6ki325grc # Cognito App Client ID
-  userPoolRegion: us-west-1
+  userPoolId:       us-west-1_NNGeSDxTP
+  appClientId:      32bvrqma8qafn20tj6ki325grc
+  userPoolRegion:   us-west-1
 
 provider:
   name: aws
@@ -23,28 +23,34 @@ provider:
           - 35eiafke5u59ldmupuo8j0j522
 
   environment:
-    VISITS_TABLE:         ${self:service}-Visits
-    VISIT_IMAGES_BUCKET:  ${self:service}-visit-images
-    DEBUG_IMAGE_URLS:     '1'
-    FRIENDS_TABLE:        ${self:service}-Friends
-    PROFILES_TABLE:       ${self:service}-Profiles
+    VISITS_TABLE:          ${self:service}-Visits
+    VISIT_IMAGES_BUCKET:   ${self:service}-visit-images
+    DEBUG_IMAGE_URLS:      '1'
+    FRIENDS_TABLE:         ${self:service}-Friends
+    PROFILES_TABLE:        ${self:service}-Profiles
+    FRIEND_REQUESTS_TABLE: ${self:service}-FriendRequests
+    USER_POOL_ID:          ${self:custom.userPoolId}
+    USER_POOL_REGION:      ${self:custom.userPoolRegion}
 
   iam:
     role:
       statements:
-        # DynamoDB (Visits, Friends, Profiles)
+        # DynamoDB
         - Effect: Allow
           Action:
             - dynamodb:Query
             - dynamodb:GetItem
             - dynamodb:PutItem
             - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
             - dynamodb:BatchGetItem
+            - dynamodb:TransactWriteItems
           Resource:
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-Visits
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-Friends
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-Profiles
-
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-FriendRequests
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-FriendRequests/index/requesterIndex
         # S3 (signed upload & reads)
         - Effect: Allow
           Action:
@@ -52,7 +58,11 @@ provider:
             - s3:GetObject
           Resource:
             - arn:aws:s3:::${self:service}-visit-images/*
-
+        # Cognito (validate friend codes)
+        - Effect: Allow
+          Action:
+            - cognito-idp:ListUsers
+          Resource: "*"
 
 functions:
   listVisits:
@@ -79,6 +89,14 @@ functions:
           method: POST
           authorizer: cognitoAuthorizer
 
+  deleteVisit:
+    handler: handler.deleteVisit
+    events:
+      - httpApi:
+          path: /visits/{placeId}
+          method: DELETE
+          authorizer: cognitoAuthorizer
+
   getUploadUrl:
     handler: handler.getUploadUrl
     events:
@@ -86,7 +104,7 @@ functions:
           path: /visits/{placeId}/upload-url
           method: GET
           authorizer: cognitoAuthorizer
-  
+
   getImageUrls:
     handler: handler.getImageUrls
     events:
@@ -127,6 +145,14 @@ functions:
           method: GET
           authorizer: cognitoAuthorizer
 
+  removeFriend:
+    handler: handler.removeFriend
+    events:
+      - httpApi:
+          path: /friends/{friendId}
+          method: DELETE
+          authorizer: cognitoAuthorizer
+
   friendsSummary:
     handler: handler.friendsSummary
     events:
@@ -143,12 +169,53 @@ functions:
           method: GET
           authorizer: cognitoAuthorizer
 
+  requestFriend:
+    handler: handler.requestFriend
+    events:
+      - httpApi:
+          path: /friends/requests/{targetUserId}
+          method: POST
+          authorizer: cognitoAuthorizer
+
+  listIncomingRequests:
+    handler: handler.listIncomingRequests
+    events:
+      - httpApi:
+          path: /friends/requests/incoming
+          method: GET
+          authorizer: cognitoAuthorizer
+
+  listOutgoingRequests:
+    handler: handler.listOutgoingRequests
+    events:
+      - httpApi:
+          path: /friends/requests/outgoing
+          method: GET
+          authorizer: cognitoAuthorizer
+
+  acceptFriendRequest:
+    handler: handler.acceptFriendRequest
+    events:
+      - httpApi:
+          path: /friends/requests/{requesterUserId}/accept
+          method: POST
+          authorizer: cognitoAuthorizer
+
+  declineFriendRequest:
+    handler: handler.declineFriendRequest
+    events:
+      - httpApi:
+          path: /friends/requests/{requesterUserId}/decline
+          method: POST
+          authorizer: cognitoAuthorizer
+
 resources:
   Resources:
     VisitsDynamoTable:
       Type: AWS::DynamoDB::Table
       Properties:
         TableName: ${self:service}-Visits
+        BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
           - AttributeName: userId
             AttributeType: S
@@ -159,7 +226,6 @@ resources:
             KeyType: HASH
           - AttributeName: placeId
             KeyType: RANGE
-        BillingMode: PAY_PER_REQUEST
 
     VisitImagesBucket:
       Type: AWS::S3::Bucket
@@ -170,7 +236,7 @@ resources:
             - AllowedMethods: [ GET, PUT ]
               AllowedOrigins: [ '*' ]
               AllowedHeaders: [ '*' ]
-    
+
     FriendsTable:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -199,3 +265,27 @@ resources:
           - AttributeName: userId
             KeyType: HASH
 
+    FriendRequestsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-FriendRequests
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: targetUserId
+            AttributeType: S
+          - AttributeName: requesterUserId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: targetUserId
+            KeyType: HASH
+          - AttributeName: requesterUserId
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: requesterIndex
+            KeySchema:
+              - AttributeName: requesterUserId
+                KeyType: HASH
+              - AttributeName: targetUserId
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL

@@ -6,9 +6,13 @@ const {
   GetCommand,
   PutCommand,
   BatchGetCommand,
+  TransactWriteCommand,
+  DeleteCommand,
 } = require("@aws-sdk/lib-dynamodb");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { CognitoIdentityProviderClient, ListUsersCommand } = require("@aws-sdk/client-cognito-identity-provider");
+
 
 const REGION = process.env.AWS_REGION || "us-west-2";
 const ddbClient = new DynamoDBClient({ region: REGION });
@@ -19,12 +23,29 @@ const TABLE = process.env.VISITS_TABLE;
 const BUCKET = process.env.VISIT_IMAGES_BUCKET;
 const FRIENDS_TABLE  = process.env.FRIENDS_TABLE  || "backend-Friends";
 const PROFILES_TABLE = process.env.PROFILES_TABLE || "backend-Profiles";
+const USER_POOL_ID = process.env.USER_POOL_ID;
+const USER_POOL_REGION = process.env.USER_POOL_REGION;
+const cognito = new CognitoIdentityProviderClient({ region: USER_POOL_REGION });
 
 // helper: extract user sub from HTTP API JWT authorizer
 function getUserSub(event) {
   const jwt = event?.requestContext?.authorizer?.jwt;
   const claims = jwt?.claims || event?.requestContext?.authorizer?.claims;
   return claims?.sub;
+}
+
+function resp(code, body) {
+  return { statusCode: code, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+}
+
+async function userExistsInPool(sub) {
+  if (!sub) return false;
+  const out = await cognito.send(new ListUsersCommand({
+    UserPoolId: USER_POOL_ID,
+    Filter: `sub = "${sub}"`,
+    Limit: 1,
+  }));
+  return (out.Users || []).length > 0;
 }
 
 exports.listVisits = async (event) => {
@@ -420,6 +441,164 @@ exports.getFriendVisits = async (event) => {
   } catch (err) {
     console.error("getFriendVisits error:", err);
     return { statusCode: 500, body: JSON.stringify({ message: "Server error", error: err.message }) };
+  }
+};
+
+exports.requestFriend = async (event) => {
+  try {
+    const me = getUserSub(event);
+    const target = event?.pathParameters?.targetUserId;
+    if (!me) return resp(401, { message: "Unauthorized" });
+    if (!target || target === me) return resp(400, { message: "Invalid targetUserId" });
+
+    // Validate target exists in Cognito
+    const exists = await userExistsInPool(target);
+    if (!exists) return resp(404, { message: "No such user" });
+
+    // Already friends?
+    const existing = await ddb.send(new GetCommand({ TableName: FRIENDS_TABLE, Key: { userId: me, friendId: target } }));
+    if (existing.Item) return resp(409, { message: "Already friends" });
+
+    // Existing pending (either direction)?
+    const incoming = await ddb.send(new GetCommand({ TableName: FRIEND_REQUESTS_TABLE, Key: { targetUserId: me, requesterUserId: target } }));
+    if (incoming.Item) return resp(409, { message: "They already requested you. Accept it instead." });
+
+    const outgoing = await ddb.send(new GetCommand({ TableName: FRIEND_REQUESTS_TABLE, Key: { targetUserId: target, requesterUserId: me } }));
+    if (outgoing.Item) return resp(200, { ok: true }); // idempotent
+
+    await ddb.send(new PutCommand({
+      TableName: FRIEND_REQUESTS_TABLE,
+      Item: { targetUserId: target, requesterUserId: me, createdAt: new Date().toISOString() },
+      ConditionExpression: "attribute_not_exists(targetUserId) AND attribute_not_exists(requesterUserId)",
+    }));
+
+    return resp(200, { ok: true });
+  } catch (e) {
+    console.error("requestFriend error", e);
+    return resp(500, { message: "Server error", error: e.message });
+  }
+};
+
+exports.listIncomingRequests = async (event) => {
+  try {
+    const me = getUserSub(event);
+    if (!me) return resp(401, { message: "Unauthorized" });
+
+    const out = await ddb.send(new QueryCommand({
+      TableName: FRIEND_REQUESTS_TABLE,
+      KeyConditionExpression: "targetUserId = :t",
+      ExpressionAttributeValues: { ":t": me },
+    }));
+    return resp(200, (out.Items || []).map(i => ({ requesterUserId: i.requesterUserId, createdAt: i.createdAt })));
+  } catch (e) {
+    console.error("listIncomingRequests error", e);
+    return resp(500, { message: "Server error", error: e.message });
+  }
+};
+
+exports.listOutgoingRequests = async (event) => {
+  try {
+    const me = getUserSub(event);
+    if (!me) return resp(401, { message: "Unauthorized" });
+
+    const out = await ddb.send(new QueryCommand({
+      TableName: FRIEND_REQUESTS_TABLE,
+      IndexName: REQUESTER_INDEX,
+      KeyConditionExpression: "requesterUserId = :r",
+      ExpressionAttributeValues: { ":r": me },
+    }));
+    return resp(200, (out.Items || []).map(i => ({ targetUserId: i.targetUserId, createdAt: i.createdAt })));
+  } catch (e) {
+    console.error("listOutgoingRequests error", e);
+    return resp(500, { message: "Server error", error: e.message });
+  }
+  };
+
+exports.acceptFriendRequest = async (event) => {
+  try {
+    const me = getUserSub(event);
+    const requester = event?.pathParameters?.requesterUserId;
+    if (!me) return resp(401, { message: "Unauthorized" });
+    if (!requester) return resp(400, { message: "Missing requesterUserId" });
+
+    // Ensure pending exists (requester -> me)
+    const pending = await ddb.send(new GetCommand({
+      TableName: FRIEND_REQUESTS_TABLE,
+      Key: { targetUserId: me, requesterUserId: requester },
+    }));
+    if (!pending.Item) return resp(404, { message: "No pending request" });
+
+    // Create mutual friendship + delete request atomically
+    await ddb.send(new TransactWriteCommand({
+      TransactItems: [
+        { Put: { TableName: FRIENDS_TABLE, Item: { userId: me, friendId: requester, createdAt: new Date().toISOString() },
+                  ConditionExpression: "attribute_not_exists(userId) AND attribute_not_exists(friendId)" } },
+        { Put: { TableName: FRIENDS_TABLE, Item: { userId: requester, friendId: me, createdAt: new Date().toISOString() },
+                  ConditionExpression: "attribute_not_exists(userId) AND attribute_not_exists(friendId)" } },
+        { Delete: { TableName: FRIEND_REQUESTS_TABLE, Key: { targetUserId: me, requesterUserId: requester } } },
+      ],
+    }));
+
+    return resp(200, { ok: true });
+  } catch (e) {
+    console.error("acceptFriendRequest error", e);
+    return resp(500, { message: "Server error", error: e.message });
+  }
+  };
+  
+exports.declineFriendRequest = async (event) => {
+  try {
+    const me = getUserSub(event);
+    const requester = event?.pathParameters?.requesterUserId;
+    if (!me) return resp(401, { message: "Unauthorized" });
+    if (!requester) return resp(400, { message: "Missing requesterUserId" });
+
+    await ddb.send(new DeleteCommand({
+      TableName: FRIEND_REQUESTS_TABLE,
+      Key: { targetUserId: me, requesterUserId: requester },
+    }));
+    return resp(200, { ok: true });
+  } catch (e) {
+    console.error("declineFriendRequest error", e);
+    return resp(500, { message: "Server error", error: e.message });
+  }
+};
+  
+exports.removeFriend = async (event) => {
+  try {
+    const me = getUserSub(event);
+    const friendId = event?.pathParameters?.friendId;
+    if (!me) return resp(401, { message: "Unauthorized" });
+    if (!friendId) return resp(400, { message: "Missing friendId" });
+
+    await ddb.send(new TransactWriteCommand({
+      TransactItems: [
+        { Delete: { TableName: FRIENDS_TABLE, Key: { userId: me,       friendId } } },
+        { Delete: { TableName: FRIENDS_TABLE, Key: { userId: friendId, friendId: me } } },
+      ],
+    }));
+    return resp(200, { ok: true });
+  } catch (e) {
+    console.error("removeFriend error", e);
+    return resp(500, { message: "Server error", error: e.message });
+  }
+};
+
+exports.deleteVisit = async (event) => {
+  try {
+    const me = getUserSub(event);
+    const placeId = event?.pathParameters?.placeId;
+    if (!me) return resp(401, { message: "Unauthorized" });
+    if (!placeId) return resp(400, { message: "Missing placeId" });
+
+    await ddb.send(new DeleteCommand({
+      TableName: TABLE,
+      Key: { userId: me, placeId },
+    }));
+    return resp(200, { ok: true });
+  } catch (e) {
+    console.error("deleteVisit error", e);
+    return resp(500, { message: "Server error", error: e.message });
   }
 };
 
