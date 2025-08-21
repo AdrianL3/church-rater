@@ -3,7 +3,7 @@ import { useFocusEffect } from 'expo-router';
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Alert, Image, TouchableOpacity, Linking } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
-import { getVisit, getImageUrls } from '../../src/api';
+import { getVisit, getImageUrls, deleteVisit } from '../../src/api';
 
 export default function DetailsPage() {
   const { placeId, title, lat, lng, rating: ratingParam, visited: visitedParam } =
@@ -93,6 +93,22 @@ export default function DetailsPage() {
   const isVisited = !!(backendVisitDate || (typeof backendRating === 'number' && !Number.isNaN(backendRating)));
 
   const ratingToShow = backendRating ?? (ratingParam ? Number(ratingParam) : undefined);
+  
+  const onDelete = async () => {
+    Alert.alert('Delete visit', 'Remove this visit from your list?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await deleteVisit(String(placeId));
+            // go back and rely on focus-based refresh on the previous screen
+            router.back();
+          } catch (e:any) {
+            Alert.alert('Error', e?.message || 'Failed to delete');
+          }
+        }
+      },
+    ]);
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -173,6 +189,11 @@ export default function DetailsPage() {
         <Text style={styles.backButtonText}>{isVisited ? 'Edit' : 'Rate'}</Text>
       </TouchableOpacity>
 
+      {isVisited && (
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: '#ff3b30' }]} onPress={onDelete}>
+          <Text style={styles.backButtonText}>Delete Visit</Text>
+        </TouchableOpacity>
+      )}
       
     </ScrollView>
   );

@@ -37,6 +37,8 @@ export default function YourLists() {
   const tabBarHeight = useBottomTabBarHeight();
   const bottomPad = tabBarHeight + insets.bottom + 24;
 
+  const isLikelyPlaceId = (id: string) => /^ChI[0-9A-Za-z_-]{15,}$/.test(id);
+
   // placeId -> name cache for UI
   const [nameCache, setNameCache] = useState<Record<string, string>>({});
   const isVisited = (v: Visit) =>
@@ -45,7 +47,9 @@ export default function YourLists() {
   const load = useCallback(async () => {
     try {
       const data = await listVisits();
-      setVisits(Array.isArray(data) ? data : []);
+      const arr = Array.isArray(data) ? data : [];
+      const onlyPlaces = arr.filter(v => v?.placeId && isLikelyPlaceId(v.placeId));
+      setVisits(onlyPlaces);
     } catch (e: any) {
       console.warn('listVisits failed:', e?.message || e);
       Alert.alert('Error', e?.message || 'Failed to load your list');
@@ -61,7 +65,11 @@ export default function YourLists() {
 
   // Prefetch names for the first few items and resolve cached ones into state
   useEffect(() => {
-    const firstIds = visits.slice(0, 10).map(v => v.placeId);
+    const firstIds = visits
+      .map(v => v.placeId)
+      .filter(id => isLikelyPlaceId(id))
+      .slice(0, 10);
+  
     prefetchNames(firstIds);
     (async () => {
       const entries = await Promise.all(
@@ -79,7 +87,10 @@ export default function YourLists() {
   const onViewableItemsChanged = useRef(
     async ({ viewableItems }: { viewableItems: Array<{ item: Visit }> }) => {
       const entries = await Promise.all(
-        viewableItems.map(async ({ item }) => [item.placeId, await getPlaceName(item.placeId)] as const)
+        viewableItems
+          .map(({ item }) => item.placeId)
+          .filter(id => isLikelyPlaceId(id))
+          .map(async id => [id, await getPlaceName(id)] as const)
       );
       setNameCache(prev => {
         const next = { ...prev };
@@ -88,6 +99,7 @@ export default function YourLists() {
       });
     }
   ).current;
+
   const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 20 });
 
   const onRefresh = () => {

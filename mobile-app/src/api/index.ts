@@ -116,3 +116,55 @@ export async function getFriendVisits(friendId: string): Promise<FriendVisit[]> 
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+export async function requestFriend(targetUserId: string) {
+  const res = await fetch(`${API_BASE}/friends/requests/${encodeURIComponent(targetUserId)}`, {
+    method: 'POST', headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function listIncomingRequests() {
+  const res = await fetch(`${API_BASE}/friends/requests/incoming`, { headers: await authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json() as Promise<Array<{ requesterUserId: string; createdAt: string }>>;
+}
+
+export async function listOutgoingRequests() {
+  const res = await fetch(`${API_BASE}/friends/requests/outgoing`, { headers: await authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json() as Promise<Array<{ targetUserId: string; createdAt: string }>>;
+}
+
+export async function acceptFriendRequest(requesterUserId: string) {
+  const res = await fetch(`${API_BASE}/friends/requests/${encodeURIComponent(requesterUserId)}/accept`, {
+    method: 'POST', headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function declineFriendRequest(requesterUserId: string) {
+  const res = await fetch(`${API_BASE}/friends/requests/${encodeURIComponent(requesterUserId)}/decline`, {
+    method: 'POST', headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function removeFriend(friendId: string) {
+  const res = await fetch(`${API_BASE}/friends/${encodeURIComponent(friendId)}`, {
+    method: 'DELETE', headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function deleteVisit(placeId: string) {
+  const res = await fetch(`${API_BASE}/visits/${encodeURIComponent(placeId)}`, {
+    method: 'DELETE', headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
