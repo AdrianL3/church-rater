@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   },
   codeText: {
     flex: 1,
-    fontFamily: 'Menlo',      // or 'Courier New'
+    fontFamily: 'Menlo',
     fontSize: 14,
   },
   copyBtn: {
