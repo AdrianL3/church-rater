@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+// app/(tabs)/YourLists.tsx
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,13 +12,13 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { listVisits } from '../../src/api';
-import { getPlaceName, prefetchNames } from '../../src/lib/placeNames';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
 type Visit = {
   userId: string;
   placeId: string;
+  placeName?: string | null;   // ← use stored name
   rating?: number | null;
   notes?: string | null;
   visitDate?: string | null;   // "YYYY-MM-DD"
@@ -37,10 +38,9 @@ export default function YourLists() {
   const tabBarHeight = useBottomTabBarHeight();
   const bottomPad = tabBarHeight + insets.bottom + 24;
 
+  // quick guard: only show real Google Place IDs
   const isLikelyPlaceId = (id: string) => /^ChI[0-9A-Za-z_-]{15,}$/.test(id);
 
-  // placeId -> name cache for UI
-  const [nameCache, setNameCache] = useState<Record<string, string>>({});
   const isVisited = (v: Visit) =>
     !!(v.visitDate || (typeof v.rating === 'number' && !Number.isNaN(v.rating)));
 
@@ -63,48 +63,8 @@ export default function YourLists() {
     load();
   }, [load]);
 
-  // Prefetch names for the first few items and resolve cached ones into state
-  useEffect(() => {
-    const firstIds = visits
-      .map(v => v.placeId)
-      .filter(id => isLikelyPlaceId(id))
-      .slice(0, 10);
-  
-    prefetchNames(firstIds);
-    (async () => {
-      const entries = await Promise.all(
-        firstIds.map(async id => [id, await getPlaceName(id)] as const)
-      );
-      setNameCache(prev => {
-        const next = { ...prev };
-        for (const [id, name] of entries) if (name && !next[id]) next[id] = name;
-        return next;
-      });
-    })();
-  }, [visits]);
-
-  // Also fetch names as rows become visible
-  const onViewableItemsChanged = useRef(
-    async ({ viewableItems }: { viewableItems: Array<{ item: Visit }> }) => {
-      const entries = await Promise.all(
-        viewableItems
-          .map(({ item }) => item.placeId)
-          .filter(id => isLikelyPlaceId(id))
-          .map(async id => [id, await getPlaceName(id)] as const)
-      );
-      setNameCache(prev => {
-        const next = { ...prev };
-        for (const [id, name] of entries) if (name && !next[id]) next[id] = name;
-        return next;
-      });
-    }
-  ).current;
-
-  const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 20 });
-
   const onRefresh = () => {
     setRefreshing(true);
-    setNameCache({});
     load();
   };
 
@@ -129,7 +89,7 @@ export default function YourLists() {
 
   const Item = ({ v }: { v: Visit }) => {
     const visited = isVisited(v);
-    const title = nameCache[v.placeId] /* || v.title */ || v.placeId;
+    const title = (v.placeName && v.placeName.trim().length > 0) ? v.placeName : v.placeId;
 
     return (
       <TouchableOpacity
@@ -137,7 +97,7 @@ export default function YourLists() {
         onPress={() =>
           router.push({
             pathname: '/(hiddenPage)/detailsPage',
-            params: { placeId: v.placeId, title }, // pass title for nicer header
+            params: { placeId: v.placeId, title }, // pass stored name for nicer header
           })
         }
       >
@@ -193,7 +153,6 @@ export default function YourLists() {
         keyExtractor={(v) => `${v.userId}:${v.placeId}`}
         renderItem={({ item }) => <Item v={item} />}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-        // 👇 give the list extra bottom space
         contentContainerStyle={{ padding: 16, paddingBottom: bottomPad }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
@@ -201,8 +160,6 @@ export default function YourLists() {
             <Text style={{ color: '#666' }}>No visits yet. Go rate a church!</Text>
           </View>
         }
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewConfigRef.current}
         keyboardShouldPersistTaps="handled"
       />
     </View>

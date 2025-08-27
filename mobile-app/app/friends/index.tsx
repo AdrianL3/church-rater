@@ -1,4 +1,3 @@
-// app/friends/index.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -14,7 +13,6 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Stack, router } from 'expo-router';
-import Constants from 'expo-constants';
 import {
   requestFriend,
   listIncomingRequests,
@@ -26,12 +24,8 @@ import {
   FriendSummary,
 } from '../../src/api';
 
-type NameCache = Record<string, string>;
 type IncomingReq = { requesterUserId: string; createdAt: string };
 type OutgoingReq = { targetUserId: string; createdAt: string };
-
-// 🔒 Simple guard to treat only real Google Place IDs as places
-const isLikelyPlaceId = (id: string) => /^ChI[0-9A-Za-z_-]{15,}$/.test(id);
 
 export default function FriendsPage() {
   const [code, setCode] = useState('');
@@ -41,30 +35,6 @@ export default function FriendsPage() {
   const [friends, setFriends] = useState<FriendSummary[]>([]);
   const [incoming, setIncoming] = useState<IncomingReq[]>([]);
   const [outgoing, setOutgoing] = useState<OutgoingReq[]>([]);
-  const [nameCache, setNameCache] = useState<NameCache>({});
-
-  const apiKey = (Constants.expoConfig?.extra as any)?.googleMapsApiKey ?? '';
-
-  const fetchPlaceName = useCallback(
-    async (placeId: string) => {
-      if (!placeId || nameCache[placeId] || !apiKey) return;
-      if (!isLikelyPlaceId(placeId)) return; // ⛔️ skip non-places
-      try {
-        const res = await fetch(
-          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(
-            placeId
-          )}&fields=name&key=${apiKey}`
-        );
-        const json = await res.json();
-        if (json.status === 'OK' && json.result?.name) {
-          setNameCache((prev) => ({ ...prev, [placeId]: json.result.name }));
-        }
-      } catch {
-        // ignore
-      }
-    },
-    [apiKey, nameCache]
-  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,33 +44,15 @@ export default function FriendsPage() {
         listIncomingRequests(),
         listOutgoingRequests(),
       ]);
-
-      // 🧹 Sanitize friends: hide bogus lastVisit placeIds
-      const safeFriends = fs.map((f) => {
-        const pid = f.lastVisit?.placeId;
-        if (!pid || !isLikelyPlaceId(pid)) {
-          // strip lastVisit if it's not a real Place ID
-          const { lastVisit, ...rest } = f as any;
-          return { ...rest } as FriendSummary;
-        }
-        return f;
-      });
-
-      setFriends(safeFriends);
+      setFriends(fs);
       setIncoming(inc);
       setOutgoing(out);
-
-      // prefetch last-visit names (only real places)
-      for (const it of safeFriends) {
-        const pid = it.lastVisit?.placeId;
-        if (pid && isLikelyPlaceId(pid)) fetchPlaceName(pid);
-      }
     } catch (e: any) {
       Alert.alert('Error', e?.message || 'Failed to load friends & requests');
     } finally {
       setLoading(false);
     }
-  }, [fetchPlaceName]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -173,12 +125,8 @@ export default function FriendsPage() {
 
   const renderFriend = (item: FriendSummary) => {
     const title = item.displayName || `${item.friendId.slice(0, 8)}…`;
-    const pid = item.lastVisit?.placeId;
-    const hasValidPlace = !!(pid && isLikelyPlaceId(pid));
-    const lastName = hasValidPlace
-      ? nameCache[pid!] || pid
-      : '—';
-    const lastDate = item.lastVisit?.visitDate && hasValidPlace ? item.lastVisit.visitDate : '—';
+    const lastName = item.lastVisit?.placeName || '—';
+    const lastDate = item.lastVisit?.visitDate || '—';
 
     return (
       <View style={styles.cardRow}>
@@ -189,9 +137,7 @@ export default function FriendsPage() {
           }
         >
           <View style={{ flex: 1 }}>
-            <Text style={styles.title} numberOfLines={1}>
-              {title}
-            </Text>
+            <Text style={styles.title} numberOfLines={1}>{title}</Text>
             <Text style={styles.sub}>
               {item.visitedCount} visited · Last: {lastName}
               {lastDate !== '—' ? ` (${lastDate})` : ''}
@@ -212,9 +158,7 @@ export default function FriendsPage() {
     return (
       <View style={styles.card}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title} numberOfLines={1}>
-            {short}
-          </Text>
+          <Text style={styles.title} numberOfLines={1}>{short}</Text>
           <Text style={styles.sub}>Incoming request</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -234,9 +178,7 @@ export default function FriendsPage() {
     return (
       <View style={styles.card}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title} numberOfLines={1}>
-            {short}
-          </Text>
+          <Text style={styles.title} numberOfLines={1}>{short}</Text>
           <Text style={styles.sub}>Sent · Pending</Text>
         </View>
       </View>
@@ -272,9 +214,7 @@ export default function FriendsPage() {
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" />
-        </View>
+        <View style={styles.center}><ActivityIndicator size="large" /></View>
       ) : (
         <ScrollView
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}

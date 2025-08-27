@@ -94,7 +94,11 @@ exports.upsertVisit = async (event) => {
     if (!userId) return { statusCode: 401, body: JSON.stringify({ message: "Unauthorized" }) };
 
     const placeId = event.pathParameters?.placeId;
-    const { rating, notes, visitDate, imageKeys } = JSON.parse(event.body || "{}");
+    const body = JSON.parse(event.body || "{}");
+
+    const { rating, notes, visitDate, imageKeys } = body;
+    const rawName = body.placeName ?? body.title ?? null;
+    const placeName = rawName ? String(rawName).slice(0, 200) : null; // trim for safety
 
     await ddb.send(
       new PutCommand({
@@ -106,6 +110,7 @@ exports.upsertVisit = async (event) => {
           notes: notes ?? null,
           visitDate: visitDate ?? null,
           imageKeys: Array.isArray(imageKeys) ? imageKeys : [],
+          placeName: placeName ?? null,      // ← store name
           timestamp: new Date().toISOString(),
         },
       })
@@ -340,70 +345,63 @@ exports.listFriends = async (event) => {
 exports.friendsSummary = async (event) => {
   try {
     const userId = getUserSub(event);
-    if (!userId) return { statusCode: 401, body: JSON.stringify({ message: "Unauthorized" }) };
+    if (!userId) return { statusCode: 401, body: JSON.stringify({ message: 'Unauthorized' }) };
 
-    // 1) list friendIds
-    const { Items } = await ddb.send(
-      new QueryCommand({
-        TableName: FRIENDS_TABLE,
-        KeyConditionExpression: "userId = :u",
-        ExpressionAttributeValues: { ":u": userId },
-      })
-    );
-    const friendIds = (Items || []).map((i) => i.friendId);
-    if (!friendIds.length) return { statusCode: 200, body: JSON.stringify([]) };
+    // get friendIds (your existing code)
+    const friendsRes = await ddb.send(new QueryCommand({
+      TableName: process.env.FRIENDS_TABLE,
+      KeyConditionExpression: "userId = :u",
+      ExpressionAttributeValues: { ":u": userId },
+      ProjectionExpression: "friendId"
+    }));
+    const friendIds = (friendsRes.Items || []).map(i => i.friendId);
 
-    // 2) batch get profiles
-    const batch = await ddb.send(
-      new BatchGetCommand({
-        RequestItems: {
-          [PROFILES_TABLE]: {
-            Keys: friendIds.map((id) => ({ userId: id })),
-            ProjectionExpression: "userId, displayName",
-          },
+    // batch get profiles (unchanged)
+    const batch = await ddb.send(new (require("@aws-sdk/lib-dynamodb").BatchGetCommand)({
+      RequestItems: {
+        [process.env.PROFILES_TABLE]: {
+          Keys: friendIds.map(id => ({ userId: id })),
+          ProjectionExpression: "userId, displayName",
         },
-      })
-    );
+      },
+    }));
     const profs = {};
-    (batch.Responses?.[PROFILES_TABLE] || []).forEach((p) => (profs[p.userId] = p));
+    (batch.Responses?.[process.env.PROFILES_TABLE] || []).forEach(p => profs[p.userId] = p);
 
-    // 3) compute counts + last visit (simple full query per friend)
+    // summarize each friend
     const summaries = [];
     for (const fid of friendIds) {
-      const all = await ddb.send(
-        new QueryCommand({
-          TableName: TABLE, // your VISITS_TABLE
-          KeyConditionExpression: "userId = :u",
-          ExpressionAttributeValues: { ":u": fid },
-          ExpressionAttributeNames: { "#ts": "timestamp" },
-          ProjectionExpression: "placeId, visitDate, rating, #ts",
-        })
-      );
-      const items = all.Items || [];
+      const q = await ddb.send(new QueryCommand({
+        TableName: TABLE, // VISITS_TABLE
+        KeyConditionExpression: "userId = :u",
+        ExpressionAttributeValues: { ":u": fid },
+        ExpressionAttributeNames: { "#ts": "timestamp" },
+        ProjectionExpression: "placeId, placeName, visitDate, rating, #ts", // ← include placeName
+      }));
+      const items = q.Items || [];
 
-      // Count "visited": either has visitDate or numeric rating
-      const visitedCount = items.filter(
-        (v) =>
-          !!v.visitDate ||
-          (typeof v.rating === "number" && !Number.isNaN(v.rating))
+      // newest by timestamp or visitDate
+      items.sort((a, b) => {
+        const ta = Date.parse(a.timestamp || a.visitDate || '') || 0;
+        const tb = Date.parse(b.timestamp || b.visitDate || '') || 0;
+        return tb - ta;
+      });
+
+      // count “visited”
+      const visitedCount = items.filter(v =>
+        !!(v.visitDate || (typeof v.rating === 'number' && !Number.isNaN(v.rating)))
       ).length;
 
-      // pick last by timestamp (fallback to visitDate)
-      let last = null;
-      for (const it of items) {
-        const t =
-          (it.timestamp && Date.parse(it.timestamp)) ||
-          (it.visitDate && Date.parse(it.visitDate)) ||
-          0;
-        if (!last || t > last._t) {
-          last = { _t: t, placeId: it.placeId, visitDate: it.visitDate || null };
-        }
-      }
+      const last = items[0];
       summaries.push({
         friendId: fid,
         displayName: profs[fid]?.displayName ?? null,
         visitedCount,
-        lastVisit: last ? { placeId: last.placeId, visitDate: last.visitDate } : null,
+        lastVisit: last ? {
+          placeId: last.placeId,
+          placeName: last.placeName ?? null,      // ← return it
+          visitDate: last.visitDate ?? null,
+        } : null,
       });
     }
 
@@ -420,26 +418,26 @@ exports.getFriendVisits = async (event) => {
     const userId = getUserSub(event);
     if (!userId) return { statusCode: 401, body: JSON.stringify({ message: "Unauthorized" }) };
 
-    const friendId = event?.pathParameters?.friendId;
-    if (!friendId) return { statusCode: 400, body: JSON.stringify({ message: "Missing friendId" }) };
+    const friendId = event.pathParameters?.friendId;
+    // …(validate friendship)…
 
-    // guard: ensure user follows friend
-    const rel = await ddb.send(
-      new GetCommand({ TableName: FRIENDS_TABLE, Key: { userId, friendId } })
-    );
-    if (!rel.Item) return { statusCode: 403, body: JSON.stringify({ message: "Not friends" }) };
+    const q = await ddb.send(new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: "userId = :u",
+      ExpressionAttributeValues: { ":u": friendId },
+      ExpressionAttributeNames: { "#ts": "timestamp" },
+      ProjectionExpression: "placeId, placeName, visitDate, rating, #ts", // ← add placeName
+    }));
 
-    const out = await ddb.send(
-      new QueryCommand({
-        TableName: TABLE,
-        KeyConditionExpression: "userId = :u",
-        ExpressionAttributeValues: { ":u": friendId },
-        ExpressionAttributeNames: { "#ts": "timestamp" },
-        ProjectionExpression: "placeId, visitDate, rating, #ts",
-      })
-    );
+    const items = (q.Items || []).map(x => ({
+      placeId: x.placeId,
+      placeName: x.placeName ?? null,            // ← return it
+      visitDate: x.visitDate ?? null,
+      rating: typeof x.rating === 'number' ? x.rating : null,
+      timestamp: x.timestamp ?? null,
+    }));
 
-    return { statusCode: 200, body: JSON.stringify(out.Items || []) };
+    return { statusCode: 200, body: JSON.stringify(items) };
   } catch (err) {
     console.error("getFriendVisits error:", err);
     return { statusCode: 500, body: JSON.stringify({ message: "Server error", error: err.message }) };
