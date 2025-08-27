@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "f408f459-1f81-4dd3-8532-04432aa4d772"
+      }
+    },
+    "owner": "adrianl3",
+    "ios": {
+      "bundleIdentifier": "com.adrianl3.churchfinder",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}
