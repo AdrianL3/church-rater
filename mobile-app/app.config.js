@@ -1,4 +1,4 @@
-// app.config.js
+// mobile-app/app.config.js
 import 'dotenv/config';
 
 export default {
@@ -17,9 +17,8 @@ export default {
       buildNumber: '1',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
-          'We use your location to show nearby churches',
-        NSPhotoLibraryAddUsageDescription:
-          'Allow adding photos to church notes.',
+          'We use your location to show nearby churches and Mass times.',
+        NSPhotoLibraryAddUsageDescription: 'Allow adding photos to church notes.',
       },
     },
     android: {
@@ -28,11 +27,6 @@ export default {
         backgroundColor: '#ffffff',
       },
       edgeToEdgeEnabled: true,
-    },
-    web: {
-      bundler: 'metro',
-      output: 'static',
-      favicon: './assets/images/favicon.png',
     },
     plugins: [
       'expo-router',
@@ -47,15 +41,18 @@ export default {
       ],
       'expo-location',
     ],
+    experiments: { typedRoutes: true },
+
+    // >>> Single 'extra' block — include your keys + eas.projectId
     extra: {
       apiUrl: 'https://tf95p1362f.execute-api.us-west-2.amazonaws.com',
       cognitoRegion: 'us-west-1',
       cognitoUserPoolId: 'us-west-1_NNGeSDxTP',
       cognitoAppClientId: '32bvrqma8qafn20tj6ki325grc',
       googleMapsApiKey: process.env.GOOGLE_API_KEY,
-    },
-    experiments: {
-      typedRoutes: true,
+      eas: {
+        projectId: 'f408f459-1f81-4dd3-8532-04432aa4d772',
+      },
     },
   },
 };
