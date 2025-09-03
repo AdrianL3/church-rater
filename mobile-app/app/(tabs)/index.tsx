@@ -18,7 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { listVisits } from '../../src/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey || '';
+const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey || (Constants as any).manifest2?.extra?.googleMapsApiKey;
 const Tab = createBottomTabNavigator();
 
 // shape of the visit info we care about
@@ -177,7 +177,7 @@ const MapScreen = () => {
       } catch (e) {
         console.warn('fetchNearbyChurches failed:', e);
       }
-    }, 500) as unknown as NodeJS.Timeout;
+    }, 1000) as unknown as NodeJS.Timeout;
   };
 
   const handleMarkerPress = (marker: PlaceMarker & { visited?: boolean }) => {

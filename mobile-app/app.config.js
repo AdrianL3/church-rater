@@ -5,7 +5,7 @@ export default {
   expo: {
     name: 'churchfinder',
     slug: 'church-finder',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'mobileapp',
@@ -14,11 +14,14 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.adrianl3.churchfinder',
-      buildNumber: '1',
+      buildNumber: '7',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           'We use your location to show nearby churches and Mass times.',
         NSPhotoLibraryAddUsageDescription: 'Allow adding photos to church notes.',
+      },
+      config: {
+        googleMapsApiKey: process.env.GOOGLE_API_KEY, // ✅ iOS native Maps SDK
       },
     },
     android: {
@@ -27,6 +30,9 @@ export default {
         backgroundColor: '#ffffff',
       },
       edgeToEdgeEnabled: true,
+      config: {
+        apiKey: process.env.GOOGLE_API_KEY, // ✅ Android native Maps SDK
+      },
     },
     plugins: [
       'expo-router',
