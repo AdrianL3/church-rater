@@ -20,6 +20,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey || (Constants as any).manifest2?.extra?.googleMapsApiKey;
 const Tab = createBottomTabNavigator();
+const NO_POI_STYLE = [
+  { featureType: 'poi', elementType: 'labels',   stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+];
+
 
 // shape of the visit info we care about
 type VisitLite = { rating?: number | null; visitDate?: string | null; notes?: string | null };
@@ -199,6 +205,7 @@ const MapScreen = () => {
         style={styles.map}
         showsUserLocation
         showsMyLocationButton
+        customMapStyle={NO_POI_STYLE}
         showsCompass
         onRegionChangeComplete={onRegionChangeComplete}
       >
@@ -252,8 +259,12 @@ const MapScreen = () => {
           fetchDetails
           minLength={1}
           listViewDisplayed
-          keyboardShouldPersistTaps="always"
-          textInputProps={{ autoFocus: true }}
+          keyboardShouldPersistTaps="handled"
+          textInputProps={{
+            autoFocus: false,
+            returnKeyType: 'search',
+            blurOnSubmit: true,
+          }}
           onPress={(data, details = null) => {
             if (!details?.geometry?.location) return;
             // @ts-ignore
