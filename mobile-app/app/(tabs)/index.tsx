@@ -64,7 +64,15 @@ const MapScreen = () => {
   const mapRef = useRef<MapView | null>(null);
   const router = useRouter();
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
-  const colorScheme = useColorScheme();
+  const [showMarkers, setShowMarkers] = useState(true);
+
+  // tweak these to taste (smaller = must zoom in more)
+  const PIN_LAT_DELTA_MAX = 0.3;
+  const PIN_LON_DELTA_MAX = 0.3;
+
+  const computeShowMarkers = (r: Region) =>
+    r.latitudeDelta < PIN_LAT_DELTA_MAX && r.longitudeDelta < PIN_LON_DELTA_MAX;
+
 
   // merge helper
   const mergePlacesWithVisits = useCallback(
@@ -108,6 +116,7 @@ const MapScreen = () => {
       const saved = await loadLastRegion();
       if (saved) {
         setRegion(saved);
+        setShowMarkers(computeShowMarkers(saved));
         setLoading(false);
         // snap immediately so it feels instant
         mapRef.current?.animateToRegion(saved, 0);
@@ -132,6 +141,7 @@ const MapScreen = () => {
       // if no saved region, use current location
       if (!saved) {
         setRegion(initial);
+        setShowMarkers(computeShowMarkers(initial));
         setLoading(false);
         mapRef.current?.animateToRegion(initial, 0);
       }
@@ -175,9 +185,16 @@ const MapScreen = () => {
 
   const onRegionChangeComplete = (r: Region) => {
     setRegion(r);
-    void saveLastRegion(r); // save the region to AsyncStorage
+    setShowMarkers(computeShowMarkers(r));
+    void saveLastRegion(r);
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
+      // If too zoomed out, don't fetch and clear places to avoid clutter
+      if (!computeShowMarkers(r)) {
+        setPlaces([]);
+        return;
+      }
       try {
         const nearby = await fetchNearbyChurches(r, apiKey);
         setPlaces(nearby);
@@ -197,6 +214,9 @@ const MapScreen = () => {
     mapRef.current?.animateToRegion(zoomRegion, 500);
   };
 
+  const { width } = Dimensions.get('window');
+  const ICON_SIZE = Math.max(24, Math.min(48, width * 0.06)); 
+
   return (
     <View style={styles.container}>
       <MapView
@@ -210,18 +230,29 @@ const MapScreen = () => {
         showsCompass
         onRegionChangeComplete={onRegionChangeComplete}
       >
+        {!showMarkers && (
+          <View style={{
+            position: 'absolute', top: Constants.statusBarHeight + 70, alignSelf: 'center',
+            backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 8,
+            borderRadius: 8
+          }}>
+            <Text style={{ color: 'white', fontWeight: '600' }}>Zoom in to see churches</Text>
+          </View>
+        )}
         {markers.map(marker => {
           const pinImage = marker.visited ? churchVisitedIcon : churchIcon;
-
           return (
             <Marker
               key={marker.id}
               coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
-              image={pinImage}                          // ← here
               anchor={{ x: 0.5, y: 1 }}
               calloutAnchor={{ x: 0.5, y: 0 }}
               onPress={() => handleMarkerPress(marker)}
             >
+              <Image
+                source={marker.visited ? churchVisitedIcon : churchIcon}
+                style={{ width: ICON_SIZE, height: ICON_SIZE, resizeMode: 'contain' }}
+              />
               <Callout
                 onPress={() => {
                   router.push({
@@ -246,8 +277,6 @@ const MapScreen = () => {
                 </View>
               </Callout>
             </Marker>
-
-            
           );
         })}
       </MapView>
@@ -340,21 +369,6 @@ const styles = StyleSheet.create({
     zIndex: 10000,
     borderWidth: 2,
     borderColor: 'red',
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 2,
-  },
-  legendIcon: {
-    width: 18,
-    height: 18,
-    marginRight: 6,
-    resizeMode: 'contain',
-  },
-  legendText: {
-    fontSize: 14,
-    color: '#333',
   },
   
 });
