@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import MapView, { PROVIDER_GOOGLE, Marker, Region, Callout } from 'react-native-maps';
-import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Image, useColorScheme } from 'react-native';
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import Constants from 'expo-constants';
@@ -14,7 +14,7 @@ import churchIcon from '../../assets/images/church.png';
 import churchVisitedIcon from '../../assets/images/church-visited.png';
 import { fetchNearbyChurches, PlaceMarker } from '../features/nearbyChurches';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { DarkTheme, useFocusEffect } from '@react-navigation/native';
 import { listVisits } from '../../src/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -64,6 +64,7 @@ const MapScreen = () => {
   const mapRef = useRef<MapView | null>(null);
   const router = useRouter();
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const colorScheme = useColorScheme();
 
   // merge helper
   const mergePlacesWithVisits = useCallback(
@@ -264,6 +265,7 @@ const MapScreen = () => {
             autoFocus: false,
             returnKeyType: 'search',
             blurOnSubmit: true,
+            placeholderTextColor: DarkTheme ? '#aaa' : '#666', // 👈 dynamic placeholder
           }}
           onPress={(data, details = null) => {
             if (!details?.geometry?.location) return;
@@ -316,6 +318,7 @@ const styles = StyleSheet.create({
     elevation: 1000,
     zIndex: 9000,
     overflow: 'visible',
+    color: DarkTheme ? 'white' : 'black', // 👈 text color
   },
   row: { width: '100%', paddingVertical: 20, paddingHorizontal: 15, borderBottomWidth: 1, borderBottomColor: '#eee', justifyContent: 'center' },
   callout: { width: 180, backgroundColor: '#fff', borderRadius: 8, padding: 8, alignItems: 'center' },

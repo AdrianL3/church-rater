@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, Alert, useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
 import { authService } from '../../services/authService';
 
@@ -9,6 +9,7 @@ export default function SignUp() {
   const [password, setPassword] = useState('');
   const [confirmationCode, setConfirmationCode] = useState('');
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const scheme = useColorScheme();
 
   const onSignUp = async () => {
     if (!email || !password) {
@@ -69,6 +70,7 @@ export default function SignUp() {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            placeholderTextColor={scheme === 'dark' ? '#aaa' : '#666'}
           />
           <TextInput
             style={styles.input}
@@ -76,6 +78,7 @@ export default function SignUp() {
             secureTextEntry
             value={password}
             onChangeText={setPassword}
+            placeholderTextColor={scheme === 'dark' ? '#aaa' : '#666'}
           />
           <Button title="Sign Up" onPress={onSignUp} />
           <Button title="Already have an account? Sign In" onPress={() => router.push('/auth/signIn')} />
@@ -89,6 +92,7 @@ export default function SignUp() {
             value={confirmationCode}
             onChangeText={setConfirmationCode}
             keyboardType="number-pad"
+            placeholderTextColor={scheme === 'dark' ? '#aaa' : '#666'}
           />
           <Button title="Confirm Sign Up" onPress={onConfirmSignUp} />
           <Button title="Back to Sign Up" onPress={() => setShowConfirmation(false)} />
@@ -102,5 +106,5 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, justifyContent: 'center' },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
   subtitle: { fontSize: 16, marginBottom: 20, textAlign: 'center', color: '#666' },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 12, borderRadius: 4 },
+  input: { borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 12, borderRadius: 4, color: '#000'},
 });

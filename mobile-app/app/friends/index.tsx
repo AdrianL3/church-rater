@@ -10,6 +10,7 @@ import {
   Alert,
   ScrollView,
   RefreshControl,
+  useColorScheme
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Stack, router } from 'expo-router';
@@ -35,6 +36,7 @@ export default function FriendsPage() {
   const [friends, setFriends] = useState<FriendSummary[]>([]);
   const [incoming, setIncoming] = useState<IncomingReq[]>([]);
   const [outgoing, setOutgoing] = useState<OutgoingReq[]>([]);
+  const scheme = useColorScheme();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -207,6 +209,7 @@ export default function FriendsPage() {
           autoCapitalize="none"
           value={code}
           onChangeText={setCode}
+          placeholderTextColor={scheme === 'dark' ? '#aaa' : '#666'}
         />
         <TouchableOpacity style={styles.addBtn} onPress={onSendRequest}>
           <Text style={{ color: 'white', fontWeight: '700' }}>Send</Text>
@@ -284,6 +287,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 44,
+    color: '#000',
   },
   addBtn: {
     backgroundColor: '#007AFF',

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, Alert, useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
 import { authService } from '../../services/authService';
 
@@ -7,6 +7,7 @@ export default function SignIn() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const scheme = useColorScheme();
 
   const onSignIn = async () => {
     if (!username || !password) {
@@ -46,6 +47,7 @@ export default function SignIn() {
         onChangeText={setUsername}
         autoCapitalize="none"
         keyboardType="email-address"
+        placeholderTextColor={scheme === 'dark' ? '#aaa' : '#666'}
       />
       <TextInput
         style={styles.input}
@@ -53,6 +55,7 @@ export default function SignIn() {
         secureTextEntry
         value={password}
         onChangeText={setPassword}
+        placeholderTextColor={scheme === 'dark' ? '#aaa' : '#666'}
       />
       <Button title="Sign In" onPress={onSignIn} />
       <Button title="Create Account" onPress={() => router.push('/auth/signUp')} />
@@ -63,5 +66,5 @@ export default function SignIn() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, justifyContent: 'center' },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 12, borderRadius: 4 },
+  input: { borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 12, borderRadius: 4, color: '#000'},
 });
