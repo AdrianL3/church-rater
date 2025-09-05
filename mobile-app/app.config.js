@@ -18,7 +18,9 @@ export default {
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           'We use your location to show nearby churches and Mass times.',
-        NSPhotoLibraryAddUsageDescription: 'Allow adding photos to church notes.',
+        NSCameraUsageDescription: "We use your camera so you can take photos of churches you visit.",
+        NSPhotoLibraryUsageDescription: "We use your photo library so you can select and upload church visit photos.",
+        NSPhotoLibraryAddUsageDescription: "We save photos you take to your photo library if you choose to do so.",
       },
       config: {
         googleMapsApiKey: process.env.GOOGLE_API_KEY, // ✅ iOS native Maps SDK
