@@ -9,17 +9,20 @@ const API_BASE = Constants.expoConfig?.extra?.apiUrl;
 
 // ---------- Auth header helper ----------
 async function authHeaders() {
-  const { tokens } = await fetchAuthSession();
-  const idToken = tokens?.idToken?.toString();
-  if (!idToken) throw new Error('No ID token');
-
-  const p = jwtDecode<IdPayload>(idToken);
-  console.log('JWT iss:', p.iss, 'aud:', p.aud, 'sub:', p.sub);
-
-  return {
-    Authorization: `Bearer ${idToken}`,
-    'Content-Type': 'application/json',
-  };
+  // Try normal fetch first (auto-refreshes when possible)
+  try {
+    const { tokens } = await fetchAuthSession();
+    const idToken = tokens?.idToken?.toString();
+    if (!idToken) throw new Error('No ID token');
+    return { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' };
+  } catch {
+    // As a last attempt, force refresh before giving up
+    // @ts-ignore
+    const { tokens } = await fetchAuthSession({ forceRefresh: true });
+    const idToken = tokens?.idToken?.toString();
+    if (!idToken) throw new Error('No ID token after forceRefresh');
+    return { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' };
+  }
 }
 
 // ---------- Visit types ----------

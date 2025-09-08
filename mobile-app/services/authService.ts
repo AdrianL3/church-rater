@@ -6,6 +6,8 @@ import {
   signOut,
   getCurrentUser,
   fetchAuthSession,
+  resetPassword,
+  confirmResetPassword,
 } from 'aws-amplify/auth';
 
 type Result = { success: true; data?: any } | { success: false; error: string };
@@ -20,38 +22,28 @@ export const authService = {
     try {
       let out;
       try {
-        // 1) SRP (preferred)
         out = await signIn({ username, password });
-      } catch (e1) {
-        console.log('SRP failed, trying USER_PASSWORD_AUTH');
-        // 2) Non-SRP (requires "User password" enabled on the app client)
-        // @ts-ignore  (Amplify v6 supports this option even if types lag)
+      } catch {
+        // @ts-ignore
         out = await signIn({ username, password, options: { authFlowType: 'USER_PASSWORD_AUTH' } });
       }
-
-      // If your pool uses next steps (MFA/confirm/reset), handle here if needed:
-      // if (!out.isSignedIn) console.log('nextStep:', out.nextStep);
-
-      const { tokens } = await fetchAuthSession();
-      if (!tokens?.idToken) throw new Error('No ID token after sign-in');
-
+      // Ensure tokens are present (will auto-refresh if needed)
+      await fetchAuthSession();
       return { success: true, data: out as any };
     } catch (e) {
-      return { success: false, error: detail(e) };
+      return { success: false, error: mapErr(e) };
     }
   },
+
   async signUp(username: string, email: string, password: string): Promise<Result> {
     try {
-      const out = await signUp({
-        username,
-        password,
-        options: { userAttributes: { email } },
-      });
+      const out = await signUp({ username, password, options: { userAttributes: { email } } });
       return { success: true, data: out };
     } catch (e) {
       return { success: false, error: mapErr(e) };
     }
   },
+
   async confirmSignUp(username: string, code: string): Promise<Result> {
     try {
       await confirmSignUp({ username, confirmationCode: code });
@@ -60,6 +52,7 @@ export const authService = {
       return { success: false, error: mapErr(e) };
     }
   },
+
   async signOut(): Promise<Result> {
     try {
       await signOut();
@@ -68,20 +61,53 @@ export const authService = {
       return { success: false, error: mapErr(e) };
     }
   },
+
+  // Returns true if we currently have (or can refresh) tokens
   async isSignedIn(): Promise<boolean> {
     try {
-      await getCurrentUser();
-      return true;
+      const s = await fetchAuthSession();               // triggers refresh if possible
+      return !!s.tokens?.idToken;
     } catch {
       return false;
     }
   },
+
+  // Try a forced refresh before giving up (useful when you got a 401 once)
+  async ensureFreshSession(): Promise<boolean> {
+    try {
+      // @ts-ignore – forceRefresh is supported in Amplify 6
+      const s = await fetchAuthSession({ forceRefresh: true });
+      return !!s.tokens?.idToken;
+    } catch {
+      return false;
+    }
+  },
+
   async getIdToken(): Promise<string | null> {
-    const { tokens } = await fetchAuthSession();
-    return tokens?.idToken?.toString() ?? null;
+    try {
+      const { tokens } = await fetchAuthSession();      // auto-refreshes if needed
+      return tokens?.idToken?.toString() ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  // Forgot password helpers already added earlier
+  async requestPasswordReset(username: string): Promise<Result> {
+    try {
+      await resetPassword({ username });
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: mapErr(e) };
+    }
+  },
+
+  async confirmPasswordReset(username: string, code: string, newPassword: string): Promise<Result> {
+    try {
+      await confirmResetPassword({ username, confirmationCode: code, newPassword });
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: mapErr(e) };
+    }
   },
 };
-function detail(e: unknown) {
-  throw new Error('Function not implemented.');
-}
-

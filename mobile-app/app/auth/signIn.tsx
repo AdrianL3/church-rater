@@ -59,6 +59,7 @@ export default function SignIn() {
       />
       <Button title="Sign In" onPress={onSignIn} />
       <Button title="Create Account" onPress={() => router.push('/auth/signUp')} />
+      <Button title="Forgot Password?" onPress={() => router.push('/auth/reset')} />
     </View>
   );
 }

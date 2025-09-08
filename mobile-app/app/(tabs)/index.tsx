@@ -215,7 +215,7 @@ const MapScreen = () => {
   };
 
   const { width } = Dimensions.get('window');
-  const ICON_SIZE = Math.max(24, Math.min(48, width * 0.06)); 
+  const ICON_SIZE = Math.max(24, Math.min(48, width * 0.07)); 
 
   return (
     <View style={styles.container}>
