@@ -14,7 +14,7 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.adrianl3.churchfinder',
-      buildNumber: '7',
+      buildNumber: '9',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           'We use your location to show nearby churches and Mass times.',
