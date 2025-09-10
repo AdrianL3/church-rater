@@ -52,7 +52,7 @@ export default function Profile() {
 
   useEffect(() => {
     (async () => {
-      const loggedIn = await authService.isSignedIn();
+      let loggedIn = await authService.isSignedIn();
       if (!loggedIn) {
         // try once more to force refresh before sending them to sign-in
         loggedIn = await authService.ensureFreshSession();
