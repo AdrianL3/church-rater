@@ -54,8 +54,11 @@ export default function Profile() {
     (async () => {
       const loggedIn = await authService.isSignedIn();
       if (!loggedIn) {
-        router.replace('/auth/signIn');
-        return;
+        // try once more to force refresh before sending them to sign-in
+        loggedIn = await authService.ensureFreshSession();
+      }
+      if (!loggedIn) {
+        router.replace('/auth/signIn'); // now we’re sure
       }
       try {
         const [stored, count, me] = await Promise.all([
