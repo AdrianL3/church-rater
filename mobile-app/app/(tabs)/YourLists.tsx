@@ -49,6 +49,7 @@ export default function YourLists() {
       const data = await listVisits();
       const arr = Array.isArray(data) ? data : [];
       const onlyPlaces = arr.filter(v => v?.placeId && isLikelyPlaceId(v.placeId));
+      // @ts-ignore
       setVisits(onlyPlaces);
     } catch (e: any) {
       console.warn('listVisits failed:', e?.message || e);
